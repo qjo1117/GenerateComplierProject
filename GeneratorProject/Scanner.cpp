@@ -92,7 +92,6 @@ CodeToken ScanOperatorAndPunctuator(std::string::iterator& _iter)
     return { ToKind(str), str };
 }
 
-constexpr ECharType GetCharType(char _char) noexcept
 {
     if (' ' == _char || '\t' == _char || '\r' == _char || '\n' == _char) {
         return ECharType::WhiteSpace;
