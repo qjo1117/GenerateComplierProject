@@ -37,5 +37,5 @@ const std::string ToString(EKind _kind) noexcept
 
 std::ostream& operator<<(std::ostream& _io, CodeToken& _token)
 {
-	return _io << std::setw(12) << std::left << ToString(_token.kind) << _token.str;
+	return _io << std::setw(12) << std::left << ToString(_token.kind) << _token.name;
 }

@@ -21,7 +21,7 @@ std::string GetExecutablePath() {
     return path;
 }
 
-void printTokenList(std::vector<CodeToken> tokenList)
+void PrintTokenList(std::vector<CodeToken> tokenList)
 {
     std::cout << std::setw(12) << std::left << "KIND" << "STRING" << std::endl;
     std::cout << std::string(23, '-') << std::endl;
@@ -89,6 +89,8 @@ int main()
                     buffer << file.rdbuf();
 
                     auto tokenList = Scanner::GetInstance().Scan(buffer.str());
+                    PrintTokenList(tokenList);
+                    std::cout << '\n' << '\n';
                     auto syntaxTree = Parser::GetInstance().Parse(tokenList);
                     PrintSyntaxTree(syntaxTree);
                     std::cout << "=============================================\n";

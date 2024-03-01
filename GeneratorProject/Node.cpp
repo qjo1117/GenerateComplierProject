@@ -9,12 +9,14 @@ static auto indent(int32 _depth)
     cout << std::string(static_cast<size_t>(_depth * 2), ' ');
 }
 
-auto printSyntaxTree(Program* program) -> void {
+void printSyntaxTree(Program* program)
+{
     for (auto& node : program->m_vecFunction)
         node->PrintInfo(0);
 }
 
-auto Function::PrintInfo(int32 _depth)->void {
+void Function::PrintInfo(int32 _depth)
+{
     indent(_depth); cout << "FUNCTION " << m_strName << ": " << endl;
     if (m_vecParameter.size()) {
         indent(_depth + 1); cout << "PARAMETERS:";
@@ -29,7 +31,8 @@ auto Function::PrintInfo(int32 _depth)->void {
     }
 }
 
-auto For::PrintInfo(int32 _depth)->void {
+void For::PrintInfo(int32 _depth)
+{
     indent(_depth); cout << "FOR:" << endl;
     indent(_depth + 1); cout << "VARIABLE:" << endl;
     m_pVariable->PrintInfo(_depth + 2);
@@ -46,7 +49,8 @@ auto For::PrintInfo(int32 _depth)->void {
     }
 }
 
-auto If::PrintInfo(int32 _depth)->void {
+void If::PrintInfo(int32 _depth) 
+{
     for (size_t i = 0; i < conditions.size(); i++) {
         indent(_depth); cout << (i == 0 ? "IF:" : "ELIF:") << endl;
       
@@ -67,37 +71,47 @@ auto If::PrintInfo(int32 _depth)->void {
     }
 }
 
-auto Variable::PrintInfo(int32 _depth)->void {
+void Variable::PrintInfo(int32 _depth)
+{
     indent(_depth); cout << "VAR " << m_strName << ":" << endl;
-    m_pExpression->PrintInfo(_depth + 1);
+    if (m_pExpression) {
+        // 없을 수도 있지
+        m_pExpression->PrintInfo(_depth + 1);
+    }
 }
 
-auto Print::PrintInfo(int32 _depth)->void {
+void Print::PrintInfo(int32 _depth)
+{
     indent(_depth); cout << (lineFeed ? "PRINT_LINE" : "PRINT:") << endl;
     for (auto& node : m_vecArgument) {
         node->PrintInfo(_depth + 1);
     }
 }
 
-auto Return::PrintInfo(int32 _depth)->void {
+void Return::PrintInfo(int32 _depth)
+{
     indent(_depth); cout << "RETURN:" << endl;
     m_pExpression->PrintInfo(_depth + 1);
 }
 
-auto Break::PrintInfo(int32 _depth)->void {
+void Break::PrintInfo(int32 _depth) 
+{
     indent(_depth); cout << "BREAK" << endl;
 }
 
-auto Continue::PrintInfo(int32 _depth)->void {
+void Continue::PrintInfo(int32 _depth)
+{
     indent(_depth); cout << "CONTINUE" << endl;
 }
 
-auto ExpressionStatement::PrintInfo(int32 _depth)->void {
+void ExpressionStatement::PrintInfo(int32 _depth)
+{
     indent(_depth); cout << "EXPRESSION:" << endl;
     m_pExpression->PrintInfo(_depth + 1);
 }
 
-auto Or::PrintInfo(int32 _depth)->void {
+void Or::PrintInfo(int32 _depth)
+{
     indent(_depth); cout << "OR:" << endl;
     
     indent(_depth + 1); cout << "LHS:" << endl;

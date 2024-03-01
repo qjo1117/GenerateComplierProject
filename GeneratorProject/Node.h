@@ -44,6 +44,7 @@ public:
 	void PrintInfo(int32 _depth);
 public:
 	std::string m_strName;
+	// 책과 사양변경으로 초기화식이 없을수도 있음.
 	std::shared_ptr<Expression> m_pExpression;
 };
 

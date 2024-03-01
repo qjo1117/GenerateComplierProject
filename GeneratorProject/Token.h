@@ -3,6 +3,7 @@
 #include <map>
 #include <iostream>
 #include <string>
+#include "TypeDefine.h"
 
 enum class EKind
 {
@@ -57,8 +58,9 @@ enum class EKind
 
 struct CodeToken
 {
+	std::string name;
+	int32 row, col;
 	EKind kind = EKind::Unknown;
-	std::string str;
 };
 
 const EKind ToKind(const std::string& _str) noexcept;

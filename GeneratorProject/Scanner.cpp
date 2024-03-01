@@ -53,93 +53,114 @@ std::vector<CodeToken> Scanner::Scan(std::string _sourceCode)
 {
     std::vector<CodeToken> result;
     _sourceCode += '\0';
-    std::string::iterator current = _sourceCode.begin();
-    while (*current != '\0') {
-        switch (GetCharType(*current)) {
+    m_info.iter = _sourceCode.begin();
+    int32 row = 1, col = 0, baseCol = 0;
+    CodeToken token;
+    while (*m_info != '\0') {
+        if (*m_info == '\n') {
+            ++row;
+            col = 1;
+            baseCol = m_info.index;
+        }
+        else {
+            col = (m_info.index - baseCol) + 1;
+        }
+
+        switch (GetCharType(*m_info)) {
         case Scanner::ECharType::WhiteSpace: {
-            current += 1;
-            break;
+            m_info++;
+            continue;
         }
         case Scanner::ECharType::NumberLiteral: {
-            result.push_back(ScanNumberLiteral(current));
+            token = ScanNumberLiteral();
             break;
         }
         case Scanner::ECharType::StringLiteral: {
-            result.push_back(ScanStringLiteral(current));
+            token = ScanStringLiteral();
             break;
         }
         case Scanner::ECharType::IdentifierAndKeyword: {
-            result.push_back(ScanIdentifierAndKeyword(current));
+            token = ScanIdentifierAndKeyword();
             break;
         }
         case Scanner::ECharType::OperatorAndPunctuator: {
-            result.push_back(ScanOperatorAndPunctuator(current));
+            token = ScanOperatorAndPunctuator();
             break;
         }
         default: {
-            std::cout << *current << " 사용할 수 없는 문자입니다.";
+            std::cout << *m_info << " 사용할 수 없는 문자입니다.\n" << "Row : " << row << " Col : " << col << '\n';
             exit(1);
         }
         }
+
+        token.row = row;
+        token.col = col;
+        result.push_back(token);
     }
-    result.push_back({ EKind::EndOfToken });
+    result.push_back({ .kind = EKind::EndOfToken });
     return result;
 }
 
-CodeToken Scanner::ScanNumberLiteral(std::string::iterator& _iter)
+CodeToken Scanner::ScanNumberLiteral()
 {
     std::string str;
-    while (IsCharType(*_iter, Scanner::ECharType::NumberLiteral)) {
-        str += *_iter++;
+    while (IsCharType(*m_info, Scanner::ECharType::NumberLiteral)) {
+        str += *m_info;
+        m_info++;
     }
-    if (*_iter == '.') {
-        str += *_iter++;
-        while (IsCharType(*_iter, Scanner::ECharType::NumberLiteral)) {
-            str += *_iter++;
+    if (*m_info == '.') {
+        str += *m_info++;
+        while (IsCharType(*m_info, Scanner::ECharType::NumberLiteral)) {
+            str += *m_info++;
         }
     }
-    return { EKind::NumberLiteral, str };
+    return { .name = str, .kind = EKind::NumberLiteral };
 }
 
-CodeToken Scanner::ScanStringLiteral(std::string::iterator& _iter)
+CodeToken Scanner::ScanStringLiteral()
 {
     std::string str;
-    _iter++;
-    while (IsCharType(*_iter, Scanner::ECharType::StringLiteral))
-        str += *_iter++;
-    if (*_iter != '\'' && *_iter != '\"') {
+    m_info++;
+    while (IsCharType(*m_info, Scanner::ECharType::StringLiteral)) {
+        str += *m_info;
+        m_info++;
+    }
+    if (*m_info != '\'' && *m_info != '\"') {
         std::cout << "문자열의 종료 문자가 없습니다.";
         exit(1);
     }
-    _iter++;
-    return { EKind::StringLiteral, str };
+    m_info++;
+    return { .name = str, .kind = EKind::StringLiteral };
 }
 
-CodeToken Scanner::ScanIdentifierAndKeyword(std::string::iterator& _iter)
+CodeToken Scanner::ScanIdentifierAndKeyword()
 {
     std::string str;
-    while (IsCharType(*_iter, Scanner::ECharType::IdentifierAndKeyword)) {
-        str += *_iter++;
+    while (IsCharType(*m_info, Scanner::ECharType::IdentifierAndKeyword)) {
+        str += *m_info;
+        m_info++;
     }
     EKind kind = ToKind(str);
     if (kind == EKind::Unknown)
         kind = EKind::Identifier;
-    return { kind, str };
+    return { .name = str, .kind = kind };
 }
 
-CodeToken Scanner::ScanOperatorAndPunctuator(std::string::iterator& _iter)
+CodeToken Scanner::ScanOperatorAndPunctuator()
 {
     std::string str;
-    while (IsCharType(*_iter, Scanner::ECharType::OperatorAndPunctuator))
-        str += *_iter++;
+    while (IsCharType(*m_info, Scanner::ECharType::OperatorAndPunctuator)) {
+        str += *m_info;
+        m_info++;
+    }
     while (str.empty() == false && ToKind(str) == EKind::Unknown) {
         str.pop_back();
-        _iter--;
+        m_info--;
     }
     if (str.empty()) {
-        std::cout << *_iter << " 사용할 수 없는 문자입니다.";
+        std::cout << *m_info << " 사용할 수 없는 문자입니다.";
         exit(1);
     }
-    return { ToKind(str), str };
+    return { .name = str, .kind = ToKind(str) };
 }
 

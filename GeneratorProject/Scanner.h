@@ -18,6 +18,30 @@ public:
         OperatorAndPunctuator,
     };
 
+    struct ScannerInfo
+    {
+    public:
+        ScannerInfo& operator++(int32)
+        {
+            iter++; ++index;
+            return *this;
+        }
+        ScannerInfo& operator--(int32)
+        {
+            iter--; --index;
+            return *this;
+        }
+        char operator*()
+        {
+            return *iter;
+        }
+
+    public:
+        std::string::iterator iter;
+        int32 index = 0;
+    };
+private:
+    Scanner() { }
 public:
     static Scanner& GetInstance()
     {
@@ -31,9 +55,12 @@ public:
 private:
     constexpr bool IsCharType(char c, ECharType type) noexcept;
     constexpr ECharType GetCharType(char _char) noexcept;
-    CodeToken ScanNumberLiteral(std::string::iterator& _iter);
-    CodeToken ScanStringLiteral(std::string::iterator& _iter);
-    CodeToken ScanIdentifierAndKeyword(std::string::iterator& _iter);
-    CodeToken ScanOperatorAndPunctuator(std::string::iterator& _iter);
+    CodeToken ScanNumberLiteral();
+    CodeToken ScanStringLiteral();
+    CodeToken ScanIdentifierAndKeyword();
+    CodeToken ScanOperatorAndPunctuator();
+
+private:
+    ScannerInfo m_info;
 };
 
