@@ -24,12 +24,27 @@
     <ClCompile Include="Scanner.cpp">
       <Filter>헤더 파일</Filter>
     </ClCompile>
+    <ClCompile Include="Parser.cpp">
+      <Filter>헤더 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Node.cpp">
+      <Filter>헤더 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Token.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Scanner.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Parser.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Node.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="TypeDefine.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

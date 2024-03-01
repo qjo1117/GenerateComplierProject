@@ -89,8 +89,9 @@ std::vector<CodeToken> Scanner::Scan(std::string _sourceCode)
 CodeToken Scanner::ScanNumberLiteral(std::string::iterator& _iter)
 {
     std::string str;
-    while (IsCharType(*_iter, Scanner::ECharType::NumberLiteral))
+    while (IsCharType(*_iter, Scanner::ECharType::NumberLiteral)) {
         str += *_iter++;
+    }
     if (*_iter == '.') {
         str += *_iter++;
         while (IsCharType(*_iter, Scanner::ECharType::NumberLiteral)) {
