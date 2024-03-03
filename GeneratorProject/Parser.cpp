@@ -389,7 +389,7 @@ std::shared_ptr<Expression> Parser::ParseMapLiteral()
             SkipCurrent(EKind::StringLiteral);
             SkipCurrent(EKind::Colon);
             auto value = ParseExpression();
-            result->m_vecValue[name] = value;
+            result->m_mapValue[name] = value;
         } while (SkipCurrentIf(EKind::Comma));
     }
     SkipCurrent(EKind::RightBrace);

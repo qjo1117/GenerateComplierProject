@@ -12,6 +12,7 @@ namespace fs = std::filesystem;
 #include "Token.h"
 #include "Scanner.h"
 #include "Parser.h"
+#include "Object.h"
 
 std::string GetExecutablePath() {
     std::string path;
@@ -94,6 +95,9 @@ int main()
                     auto syntaxTree = Parser::GetInstance().Parse(tokenList);
                     PrintSyntaxTree(syntaxTree);
                     std::cout << "=============================================\n";
+
+                    Interpret(syntaxTree);
+                    std::cout << "\n=============================================\n";
                     file.close();
                 }
             }

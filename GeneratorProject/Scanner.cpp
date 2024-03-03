@@ -141,8 +141,9 @@ CodeToken Scanner::ScanIdentifierAndKeyword()
         m_info++;
     }
     EKind kind = ToKind(str);
-    if (kind == EKind::Unknown)
+    if (kind == EKind::Unknown) {
         kind = EKind::Identifier;
+    }
     return { .name = str, .kind = kind };
 }
 
