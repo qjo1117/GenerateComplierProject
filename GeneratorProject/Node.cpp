@@ -1,6 +1,7 @@
 #include <iostream>
 #include <list>
 #include <functional>
+#include <regex>
 #include "Node.h"
 #include "Object.h"
 
@@ -170,21 +171,21 @@ void For::Interpret()
 std::string If::PrintInfo(int32 _depth)
 {
     std::string strResult;
-    for (size_t i = 0; i < conditions.size(); i++) {
-        strResult += Indent(_depth) + (i == 0 ? "IF:\n" : "ELIF:\n");
-        strResult += Indent(_depth + 1) + "CONDITION:\n";
-        strResult += conditions[i]->PrintInfo(_depth + 2);
+    for (size_t i = 0; i < m_vecCondition.size(); i++) {
+        strResult += Indent(_depth) + (i == 0 ? "IF: \n" : "ELIF: \n");
+        strResult += Indent(_depth + 1) + "CONDITION: \n";
+        strResult += m_vecCondition[i]->PrintInfo(_depth + 2);
         
-        strResult += Indent(_depth + 1) + "BLOCK:\n";
+        strResult += Indent(_depth + 1) + "BLOCK: \n";
 
-        for (auto& pNode : blocks[i])
+        for (auto& pNode : m_vecBlocks[i])
             strResult += pNode->PrintInfo(_depth + 2);
     }
     if (m_vecElseBlock.size() == 0) {
         return std::string();
     }
 
-    strResult += Indent(_depth) + "ELSE:\n";
+    strResult += Indent(_depth) + "ELSE: \n";
     for (auto& pNode : m_vecElseBlock) {
         strResult += pNode->PrintInfo(_depth + 1);
     }
@@ -193,12 +194,32 @@ std::string If::PrintInfo(int32 _depth)
 
 void If::Interpret()
 {
+    for (uint64 i = 0; i < m_vecCondition.size(); i++) {
+        auto pResult = m_vecCondition[i]->Interpret();
+        if (Object::IsTrue(pResult) == false) {
+            continue;
+        }
+        GET_INTERPRETER().m_listLocalFrame.back().emplace_front();
+        for (auto& pNode : m_vecBlocks[i]) {
+            pNode->Interpret();
+        }
+        GET_INTERPRETER().m_listLocalFrame.back().pop_front();
+        return;
+    }
+    if (m_vecElseBlock.empty()) {
+        return;
+    }
+    GET_INTERPRETER().m_listLocalFrame.back().emplace_front();
+    for (auto& pNode : m_vecElseBlock) {
+        pNode->Interpret();
+    }
+    GET_INTERPRETER().m_listLocalFrame.back().pop_front();
 }
 
 std::string Variable::PrintInfo(int32 _depth)
 {
     std::string strResult = 
-        Indent(_depth) + "VAR " + m_strName + ":\n";
+        Indent(_depth) + "VAR " + m_strName + ": \n";
     if (m_pExpression) {
         // 없을 수도 있지
         strResult += m_pExpression->PrintInfo(_depth + 1);
@@ -226,8 +247,9 @@ void Print::Interpret()
 #ifdef USE_APPLICATION_IMGUI
     for (auto& pNode : m_vecArgument) {
         auto anyValue = pNode->Interpret();
-        ImGui::Text(AnyToString(anyValue).c_str());
-        ImGui::SameLine();
+        string strResult = AnyToString(anyValue);
+        strResult = std::regex_replace(strResult, std::regex("\\\\n"), "\n");
+        ImGui::Text(strResult.c_str());
     }
     if (m_bLineFeed) {
         ImGui::Text("");

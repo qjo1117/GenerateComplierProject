@@ -27,6 +27,8 @@ private:
 	std::string m_strPrintTokenStringText;
 	std::string m_strParserText;
 
+	std::string m_strBackUp;
+
 	std::shared_ptr<Program> m_pProgram = nullptr;
 };
 

@@ -123,9 +123,9 @@ std::shared_ptr<If> Parser::ParseIf()
             std::cout << "if문에 조건식이 없습니다.";
             exit(1);
         }
-        result->conditions.push_back(condition);
+        result->m_vecCondition.push_back(condition);
         SkipCurrent(EKind::LeftBrace);
-        result->blocks.push_back(ParseBlock());
+        result->m_vecBlocks.push_back(ParseBlock());
         SkipCurrent(EKind::RightBrace);
     } while (SkipCurrentIf(EKind::ElIf));
     if (SkipCurrentIf(EKind::Else)) {

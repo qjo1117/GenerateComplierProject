@@ -127,8 +127,8 @@ public:
 	void Interpret() override;
 
 public:
-	std::vector<std::shared_ptr<Expression>> conditions;
-	std::vector<std::vector<std::shared_ptr<Statement>>> blocks;
+	std::vector<std::shared_ptr<Expression>> m_vecCondition;
+	std::vector<std::vector<std::shared_ptr<Statement>>> m_vecBlocks;
 	std::vector<std::shared_ptr<Statement>> m_vecElseBlock;
 };
 

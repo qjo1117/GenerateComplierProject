@@ -1,4 +1,4 @@
 function main() {
-  printline "Hello World1";
+  print "Hello World1 \n Hello World3";
   printline "Hello World2";
 }

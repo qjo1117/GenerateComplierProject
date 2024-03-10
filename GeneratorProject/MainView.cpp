@@ -8,6 +8,7 @@
 #include <sstream>
 #include <iomanip>
 #include <memory>
+#include <cstdlib>
 namespace fs = std::filesystem;
 
 #include "Token.h"
@@ -54,6 +55,7 @@ namespace
 
     // 컴파일러로 돌아가는 친구들 담은 전역변수 (클래스 구조까지는 굳이..?)
     std::map<std::string, std::wstring> g_mapPMFilePath;
+    std::vector<std::string> g_vecRemoveFile;
     std::string g_directory;
 
     // Directory내 파일을 읽어서 파일을 등록한다.
@@ -94,23 +96,31 @@ void MainView::Update()
         ImGui::Text(_str.c_str());
         ImGui::Text("==========================");
         ImGui::EndGroup();
-    };
+        };
 
-    ImGui::BeginGroup();
-    for (auto& [key, wStrFileName] : g_mapPMFilePath) {
-        if (ImGui::Button(key.c_str())) {
-            m_strInputFileBuffer = key;
-        }
-    }
-    ImGui::EndGroup();
-
-    if (m_strFileContext.empty() == false) {
-        ImGui::SameLine();
-        ImGui::Text(m_strFileContext.c_str());
-    }
-    
     if (ImGui::Button("Reload File Directory")) {
         ReadDirectory();
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Create File")) {
+        string fileName = m_strInputFileBuffer.data();
+        if (fileName.find(".pm") == std::string::npos) {
+            fileName += ".pm";
+        }
+        std::stringstream templateStringBuffer;
+        std::ifstream templateFile(g_directory + "\\" + "pm_language_template.template");
+        if (templateFile.is_open()) {
+            templateStringBuffer << templateFile.rdbuf();
+            templateFile.close();
+        }
+
+        std::ofstream file(g_directory + "\\" + fileName);
+        if (file.is_open()) {
+            file << templateStringBuffer.str();
+            file.close();
+            ReadDirectory();
+        }
     }
 
     if (ImGui::Button("Complie")) {
@@ -122,10 +132,10 @@ void MainView::Update()
         std::ifstream file;
         file.open(g_directory + "\\" + findIt->first);
         if (file.is_open()) {
-            std::stringstream buffer;
-            buffer << file.rdbuf();
+            std::stringstream stringBuffer;
+            stringBuffer << file.rdbuf();
 
-            m_strFileContext = buffer.str();
+            m_strFileContext = stringBuffer.str();
             auto tokenList = Scanner::GetInstance().Scan(m_strFileContext);
             m_strPrintTokenKindText = PrintTokenListKind(tokenList);
             m_strPrintTokenStringText = PrintTokenListString(tokenList);
@@ -138,7 +148,46 @@ void MainView::Update()
     ImGui::SameLine();
     ImGui::InputText("File Name", m_strInputFileBuffer.data(), Input_file_buffer_size);
 
+    if (ImGui::BeginListBox("File List", ImVec2{ 400, 200 })) {
+        for (auto& [key, wStrFileName] : g_mapPMFilePath) {
+            if (ImGui::Button(key.c_str(), ImVec2{ 250, 25 })) {
+                m_strInputFileBuffer = key;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(("FileOpen" + string("##") + key).c_str())) {
+                string strOpenCommand = "code ..\\Output\\";
+                strOpenCommand += key;
+                system(strOpenCommand.c_str());
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(("Delete" + string("##") + key).c_str())) {
+                g_vecRemoveFile.push_back(key);
 
+                std::ifstream file(g_directory + "\\" + key);
+                if(file.is_open()) {
+                    std::stringstream stringBuffer;
+                    stringBuffer << file.rdbuf();
+                    m_strBackUp = stringBuffer.str();
+
+                    std::ofstream backupFile(g_directory + "\\" + "backup.pm");
+                    if (backupFile.is_open()) {
+                        backupFile << m_strBackUp;
+                        backupFile.close();
+                    }
+                    file.close();
+                }
+            }
+        }
+        ImGui::EndListBox();
+    }
+
+    if (m_strFileContext.empty() == false) {
+        ImGui::SameLine();
+        if (ImGui::BeginListBox("File Context", ImVec2{ 400, 200 })) {
+            ImGui::Text(m_strFileContext.c_str());
+            ImGui::EndListBox();
+        }
+    }
     
     if (m_strPrintTokenKindText.empty() == false) {
         FuncPrintText(m_strPrintTokenKindText);
@@ -160,7 +209,13 @@ void MainView::Update()
 
 void MainView::PostUpdate()
 {
-
+    if (g_vecRemoveFile.empty() == false) {
+        for (auto& filePath : g_vecRemoveFile) {
+            g_mapPMFilePath.erase(filePath);
+            std::remove((g_directory + "\\" + filePath).c_str());
+        }
+        g_vecRemoveFile.clear();
+    }
 }
 
 void MainView::End()

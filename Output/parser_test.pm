@@ -1,7 +1,7 @@
 function main() {
-  var a = true;
+  var a = false;
   print "Hello";
-  if(a or 5) {
+  if(a or false) {
     print "World";
   }
   else {

@@ -272,8 +272,12 @@ bool Application::InitGUI()
         return false;
     }
 
-    if (!ImGui_ImplWin32_Init(m_hMainWindow)) {
+    if (ImGui_ImplWin32_Init(m_hMainWindow) == false) {
         return false;
+    }
+
+    for (auto& [strName, pView] : m_vecWindowView) {
+        pView->Init();
     }
 
     return true;

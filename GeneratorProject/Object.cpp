@@ -55,7 +55,6 @@ map<string, function<any(vector<any>)>> builtinFunctionTable = {
   }},
 };
 
-
 bool Object::IsSize(std::any _anyValue)
 {
 	return _anyValue.type() == typeid(size_t);
