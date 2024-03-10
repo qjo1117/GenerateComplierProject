@@ -183,6 +183,38 @@ std::function<std::any(std::vector<std::any>)> Object::ToBuiltinFunction(std::an
 	return std::any_cast<std::function<std::any(std::vector<std::any>)>>(_anyValue);
 }
 
+std::string AnyToString(std::any _anyValue)
+{
+	std::string strResult;
+	if (Object::IsNull(_anyValue)) {
+		strResult = "null";
+	}
+	else if (Object::IsBoolean(_anyValue)) {
+		strResult = std::any_cast<bool>(_anyValue) ? "true" : "false";
+	}
+	else if (Object::IsNumber(_anyValue)) {
+		strResult = std::to_string(Object::ToNumber(_anyValue));
+	}
+	else if (Object::IsString(_anyValue)) {
+		strResult = Object::ToString(_anyValue);
+	}
+	else if (Object::IsArray(_anyValue)) {
+		strResult = "[ ";
+		for (auto& value : Object::ToArray(_anyValue)->m_vecValue) {
+			strResult += AnyToString(value) + " ";
+		}
+		strResult += "]";
+	}
+	else if (Object::IsMap(_anyValue)) {
+		strResult = "{ ";
+		for (auto& [key, value] : Object::ToMap(_anyValue)->m_mapValue) {
+			strResult += key + ":" + AnyToString(value) + " ";
+		}
+		strResult += "}";
+	}
+	return strResult;
+}
+
 std::ostream& operator<<(ostream& _os, any& _anyValue)
 {
 	if (Object::IsNull(_anyValue)) {

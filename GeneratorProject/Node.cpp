@@ -4,7 +4,8 @@
 #include "Node.h"
 #include "Object.h"
 
-using std::cout;
+#include "Application.h"
+
 using std::endl;
 
 struct ReturnException 
@@ -14,57 +15,103 @@ struct ReturnException
 struct BreakException {};
 struct ContinueException {};
 
-static std::map<std::string, std::any> global;
-static std::list<std::list<std::map<std::string, std::any>>> local;
-static std::map<std::string, std::shared_ptr<Function>> functionTable;
-extern std::map<std::string, std::function<std::any(std::vector<std::any>)>> builtinFunctionTable;
-
-static auto Indent(int32 _depth)
+static std::string Indent(int32 _depth)
 {
-    cout << std::string(static_cast<size_t>(_depth * 2), ' ');
+    return std::string(static_cast<size_t>(_depth * 2), ' ');
 }
 
 void PrintSyntaxTree(Program* program)
 {
-    for (auto& node : program->m_vecFunction)
-        node->PrintInfo(0);
+    for (auto& pNode : program->m_vecFunction) {
+        pNode->PrintInfo(0);
+    }
 }
 
-void Interpret(std::shared_ptr<Program> _pProgram)
+void Interpreter::Interpret(std::shared_ptr<Program> _pProgram)
 {
-    functionTable.clear();
-    global.clear();
-    local.clear();
+    // Clear
+    GET_INTERPRETER().m_mapFunctionTable.clear();
+    GET_INTERPRETER().m_mapGlobal.clear();
+    GET_INTERPRETER().m_listLocalFrame.clear();
     for (auto& node : _pProgram->m_vecFunction) {
-        functionTable[node->m_strName] = node;
+        GET_INTERPRETER().m_mapFunctionTable[node->m_strName] = node;
     }
-    if (functionTable["main"] == nullptr) {
+    if (GET_INTERPRETER().m_mapFunctionTable["main"] == nullptr) {
+        std::cout << "Cannot find main function\n";
         return;
     }
-    local.emplace_back().emplace_front();
+    GET_INTERPRETER().m_listLocalFrame.emplace_back().emplace_front();
     try {
-        functionTable["main"]->Interpret();
+        GET_INTERPRETER().m_mapFunctionTable["main"]->Interpret();
     }
     catch (ReturnException) {}
     catch (BreakException) {}
     catch (ContinueException) {}
-    local.pop_back();
+    GET_INTERPRETER().m_listLocalFrame.pop_back();
 }
 
-void Function::PrintInfo(int32 _depth)
+Interpreter::Interpreter()
 {
-    Indent(_depth); cout << "FUNCTION " << m_strName << ": " << endl;
+    m_mapBuiltinFunctionTable = {
+        {"length", [](vector<any> values)->any {
+          if (values.size() == 1 && Object::IsArray(values[0])) {
+              return static_cast<float64>(Object::ToArray(values[0])->m_vecValue.size());
+          }
+          if (values.size() == 1 && Object::IsMap(values[0])) {
+              return static_cast<float64>(Object::ToMap(values[0])->m_mapValue.size());
+          }
+          return 0.0;
+        }},
+        {"push", [](vector<any> values)->any {
+          if (values.size() == 2 && Object::IsArray(values[0])) {
+            Object::ToArray(values[0])->m_vecValue.push_back(values[1]);
+            return values[0];
+          }
+          return nullptr;
+        }},
+        {"pop", [](vector<any> values)->any {
+          if (values.size() == 1 && Object::IsArray(values[0]) && Object::ToArray(values[0])->m_vecValue.size() != 0) {
+            auto result = Object::ToArray(values[0])->m_vecValue.back();
+            Object::ToArray(values[0])->m_vecValue.pop_back();
+            return result;
+          }
+          return nullptr;
+        }},
+        {"erase", [](vector<any> values)->any {
+          if (values.size() == 2 && Object::IsMap(values[0]) && Object::IsString(values[1]) &&
+              Object::ToMap(values[0])->m_mapValue.count(Object::ToString(values[1]))) {
+            auto result = Object::ToMap(values[0])->m_mapValue.at(Object::ToString(values[1]));
+            Object::ToMap(values[0])->m_mapValue.erase(Object::ToString(values[1]));
+            return result;
+          }
+          return nullptr;
+        }},
+        {"clock", [](vector<any> values)->any {
+          return static_cast<float64>(clock());
+        }},
+        {"sqrt", [](vector<any> values)->any {
+          return sqrt(Object::ToNumber(values[0]));
+        }},
+    };
+}
+
+std::string Function::PrintInfo(int32 _depth)
+{
+    std::string strResult 
+        = Indent(_depth) + "FUNCTION " + m_strName + " : \n";
     if (m_vecParameter.size()) {
-        Indent(_depth + 1); cout << "PARAMETERS:";
+        strResult += Indent(_depth + 1); 
+        strResult += "PARAMETERS:";
         for (auto& name : m_vecParameter) {
-            cout << name << " ";
+            strResult += name + " ";
         }
-        cout << endl;
+        strResult += "\n";
     }
-    Indent(_depth + 1); cout << "BLOCK:" << endl;
+    strResult += Indent(_depth + 1) + "BLOCK: \n";
     for (auto& node : m_vecBlock) {
-        node->PrintInfo(_depth + 2);
+        strResult += node->PrintInfo(_depth + 2);
     }
+    return strResult;
 }
 
 void Function::Interpret()
@@ -74,27 +121,30 @@ void Function::Interpret()
     }
 }
 
-void For::PrintInfo(int32 _depth)
+std::string For::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "FOR:" << endl;
-    Indent(_depth + 1); cout << "VARIABLE:" << endl;
-    m_pVariable->PrintInfo(_depth + 2);
+    std::string strResult =
+        Indent(_depth) + "FOR:\n";
+
+    strResult += Indent(_depth + 1) + "VARIABLE:\n";
+    strResult += m_pVariable->PrintInfo(_depth + 2);
     
-    Indent(_depth + 1); cout << "CONDITION:" << endl;
-    m_pCondition->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "CONDITION:\n";
+    strResult += m_pCondition->PrintInfo(_depth + 2);
     
-    Indent(_depth + 1); cout << "EXPRESSION:" << endl;
-    m_pExpression->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "EXPRESSION:\n";
+    strResult += m_pExpression->PrintInfo(_depth + 2);
     
-    Indent(_depth + 1); cout << "BLOCK:" << endl;
-    for (auto& node : m_vecBlock) {
-        node->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "BLOCK:\n";
+    for (auto& pNode : m_vecBlock) {
+        strResult += pNode->PrintInfo(_depth + 2);
     }
+    return strResult;
 }
 
 void For::Interpret()
 {
-    local.back().emplace_front();
+    GET_INTERPRETER().m_listLocalFrame.back().emplace_front();
     m_pVariable->Interpret();
     while (true) {
         auto result = m_pCondition->Interpret();
@@ -114,70 +164,91 @@ void For::Interpret()
         }
         m_pExpression->Interpret();
     }
-    local.back().pop_front();
+    GET_INTERPRETER().m_listLocalFrame.back().pop_front();
 }
 
-void If::PrintInfo(int32 _depth) 
+std::string If::PrintInfo(int32 _depth)
 {
+    std::string strResult;
     for (size_t i = 0; i < conditions.size(); i++) {
-        Indent(_depth); cout << (i == 0 ? "IF:" : "ELIF:") << endl;
-      
-        Indent(_depth + 1); cout << "CONDITION:" << endl;
-        conditions[i]->PrintInfo(_depth + 2);
+        strResult += Indent(_depth) + (i == 0 ? "IF:\n" : "ELIF:\n");
+        strResult += Indent(_depth + 1) + "CONDITION:\n";
+        strResult += conditions[i]->PrintInfo(_depth + 2);
         
-        Indent(_depth + 1); cout << "BLOCK:" << endl;
-        for (auto& node : blocks[i])
-            node->PrintInfo(_depth + 2);
+        strResult += Indent(_depth + 1) + "BLOCK:\n";
+
+        for (auto& pNode : blocks[i])
+            strResult += pNode->PrintInfo(_depth + 2);
     }
     if (m_vecElseBlock.size() == 0) {
-        return;
+        return std::string();
     }
 
-    Indent(_depth); cout << "ELSE:" << endl;
-    for (auto& node : m_vecElseBlock) {
-        node->PrintInfo(_depth + 1);
+    strResult += Indent(_depth) + "ELSE:\n";
+    for (auto& pNode : m_vecElseBlock) {
+        strResult += pNode->PrintInfo(_depth + 1);
     }
+    return strResult;
 }
 
 void If::Interpret()
 {
 }
 
-void Variable::PrintInfo(int32 _depth)
+std::string Variable::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "VAR " << m_strName << ":" << endl;
+    std::string strResult = 
+        Indent(_depth) + "VAR " + m_strName + ":\n";
     if (m_pExpression) {
         // 없을 수도 있지
-        m_pExpression->PrintInfo(_depth + 1);
+        strResult += m_pExpression->PrintInfo(_depth + 1);
     }
+    return strResult;
 }
 
 void Variable::Interpret()
 {
-    local.back().front()[m_strName] = m_pExpression->Interpret();
+    GET_INTERPRETER().m_listLocalFrame.back().front()[m_strName] = m_pExpression->Interpret();
 }
 
-void Print::PrintInfo(int32 _depth)
+std::string Print::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << (lineFeed ? "PRINT_LINE" : "PRINT:") << endl;
-    for (auto& node : m_vecArgument) {
-        node->PrintInfo(_depth + 1);
+    std::string strResult =
+        Indent(_depth) + (m_bLineFeed ? "PRINT_LINE\n" : "PRINT:\n");
+    for (auto& pNode : m_vecArgument) {
+        strResult += pNode->PrintInfo(_depth + 1);
     }
+    return strResult;
 }
 
 void Print::Interpret()
 {
+#ifdef USE_APPLICATION_IMGUI
+    for (auto& pNode : m_vecArgument) {
+        auto anyValue = pNode->Interpret();
+        ImGui::Text(AnyToString(anyValue).c_str());
+        ImGui::SameLine();
+    }
+    if (m_bLineFeed) {
+        ImGui::Text("");
+    }
+#else
     for (auto& pNode : m_vecArgument) {
         auto anyValue = pNode->Interpret();
         std::cout << anyValue;
     }
-    if (lineFeed) cout << endl;
+    if (m_bLineFeed) {
+        std::cout << endl;
+    }
+#endif
 }
 
-void Return::PrintInfo(int32 _depth)
+std::string Return::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "RETURN:" << endl;
-    m_pExpression->PrintInfo(_depth + 1);
+    std::string strResult =
+        Indent(_depth) + "RETURN:\n";
+    strResult += m_pExpression->PrintInfo(_depth + 1);
+    return strResult;
 }
 
 void Return::Interpret()
@@ -185,28 +256,30 @@ void Return::Interpret()
     throw ReturnException{ m_pExpression->Interpret() };
 }
 
-void Break::PrintInfo(int32 _depth) 
+std::string Break::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "BREAK" << endl;
+    return Indent(_depth) + "BREAK\n";
 }
 
 void Break::Interpret()
 {
 }
 
-void Continue::PrintInfo(int32 _depth)
+std::string Continue::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "CONTINUE" << endl;
+    return Indent(_depth) + "CONTINUE\n";
 }
 
 void Continue::Interpret()
 {
 }
 
-void ExpressionStatement::PrintInfo(int32 _depth)
+std::string ExpressionStatement::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "EXPRESSION:" << endl;
-    m_pExpression->PrintInfo(_depth + 1);
+    std::string strResult =
+        Indent(_depth) + "EXPRESSION:\n";
+    strResult += m_pExpression->PrintInfo(_depth + 1);
+    return strResult;
 }
 
 void ExpressionStatement::Interpret()
@@ -214,15 +287,17 @@ void ExpressionStatement::Interpret()
     m_pExpression->Interpret();
 }
 
-void Or::PrintInfo(int32 _depth)
+std::string Or::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "OR:" << endl;
+    std::string strResult =
+        Indent(_depth) + "OR:\n";
     
-    Indent(_depth + 1); cout << "LHS:" << endl;
-    m_pLhs->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "LHS:\n";
+    strResult += m_pLhs->PrintInfo(_depth + 2);
     
-    Indent(_depth + 1); cout << "RHS:" << endl;
-    m_pRhs->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "RHS:\n";
+    strResult += m_pRhs->PrintInfo(_depth + 2);
+    return strResult;
 }
 
 std::any Or::Interpret()
@@ -230,15 +305,17 @@ std::any Or::Interpret()
     return Object::IsTrue(m_pLhs->Interpret()) ? true : m_pRhs->Interpret();;
 }
 
-void And::PrintInfo(int32 _depth)
+std::string And::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "AND:" << endl;
+    std::string strResult =
+        Indent(_depth) + "AND:\n";
 
-    Indent(_depth + 1); cout << "LHS:" << endl;
-    m_pLhs->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "LHS:\n";
+    strResult += m_pLhs->PrintInfo(_depth + 2);
 
-    Indent(_depth + 1); cout << "RHS:" << endl;
-    m_pRhs->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "RHS:\n";
+    strResult += m_pRhs->PrintInfo(_depth + 2);
+    return strResult;
 }
 
 std::any And::Interpret()
@@ -246,15 +323,20 @@ std::any And::Interpret()
     return Object::IsFalse(m_pLhs->Interpret()) ? false : m_pRhs->Interpret();
 }
 
-void Relational::PrintInfo(int32 _depth)
+std::string Relational::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << ToString(m_eKind) << ":" << endl;
+    std::string strResult =
+        Indent(_depth); 
+    strResult += ToString(m_eKind) + ":\n";
 
-    Indent(_depth + 1); cout << "LHS:" << endl;
-    m_pLhs->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1); 
+    strResult += "LHS:\n";
+    strResult += m_pLhs->PrintInfo(_depth + 2);
 
-    Indent(_depth + 1); cout << "RHS:" << endl;
-    m_pRhs->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1); 
+    strResult += "RHS:\n";
+    strResult += m_pRhs->PrintInfo(_depth + 2);
+    return strResult;
 }
 
 std::any Relational::Interpret()
@@ -311,15 +393,17 @@ std::any Relational::Interpret()
     return false;
 }
 
-void Arithmetic::PrintInfo(int32 _depth) 
+std::string Arithmetic::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << ToString(m_eKind) << ":" << endl;
+    std::string strResult =
+        Indent(_depth) + ToString(m_eKind) + ":\n";
     
-    Indent(_depth + 1); cout << "LHS:" << endl;
-    m_pLhs->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "LHS:\n";
+    strResult += m_pLhs->PrintInfo(_depth + 2);
     
-    Indent(_depth + 1); cout << "RHS:" << endl;
-    m_pRhs->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "RHS:\n";
+    strResult += m_pRhs->PrintInfo(_depth + 2);
+    return strResult;
 }
 
 std::any Arithmetic::Interpret()
@@ -343,8 +427,21 @@ std::any Arithmetic::Interpret()
     if (m_eKind == EKind::Subtract && IsFunc(Object::IsNumber)) {
         return Object::ToNumber(lValue) - Object::ToNumber(rValue);
     }
-    if (m_eKind == EKind::Multiply && IsFunc(Object::IsNumber)) {
-        return Object::ToNumber(lValue) * Object::ToNumber(rValue);
+    if (m_eKind == EKind::Multiply) {
+        if (IsFunc(Object::IsNumber)) {
+            return Object::ToNumber(lValue) * Object::ToNumber(rValue);
+        }
+        else if (Object::IsString(lValue) && Object::IsNumber(rValue)) {
+            // python 처럼 문자열을 복사한다.
+            std::string result;
+            std::string temp = Object::ToString(lValue);
+            int32 size = Object::ToNumber(rValue);
+            result.reserve(temp.length() * size);
+            for (int32 i = 0; i < size; ++i) {
+                result += temp;
+            }
+            return result;
+        }
     }
     if (m_eKind == EKind::Divide && IsFunc(Object::IsNumber)) {
         return Object::ToNumber(rValue) == 0 ? 0.0 : Object::ToNumber(lValue) / Object::ToNumber(rValue);
@@ -356,10 +453,12 @@ std::any Arithmetic::Interpret()
     return 0.0;
 }
 
-void Unary::PrintInfo(int32 _depth)
+std::string Unary::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << ToString(m_eKind) << endl;
-    m_pSub->PrintInfo(_depth + 1);
+    std::string strResult =
+        Indent(_depth) + ToString(m_eKind) + '\n';
+    strResult += m_pSub->PrintInfo(_depth + 1);
+    return strResult;
 }
 
 std::any Unary::Interpret()
@@ -374,15 +473,17 @@ std::any Unary::Interpret()
     return 0.0;
 }
 
-void GetElement::PrintInfo(int32 _depth)
+std::string GetElement::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "GET_ELEMENT:" << endl;
+    std::string strResult =
+        Indent(_depth) + "GET_ELEMENT:\n";
     
-    Indent(_depth + 1); cout << "SUB:" << endl;
-    m_pSub->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "SUB:\n";
+    strResult += m_pSub->PrintInfo(_depth + 2);
     
-    Indent(_depth + 1); cout << "INDEX:" << endl;
-    m_pIndex->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "INDEX:\n";
+    strResult += m_pIndex->PrintInfo(_depth + 2);
+    return strResult;
 }
 
 std::any GetElement::Interpret()
@@ -398,18 +499,20 @@ std::any GetElement::Interpret()
     return nullptr;
 }
 
-void SetElement::PrintInfo(int32 _depth)
+std::string SetElement::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "SET_ELEMENT:" << endl;
+    std::string strResult =
+        Indent(_depth) + "SET_ELEMENT:\n";
     
-    Indent(_depth + 1); cout << "SUB:" << endl;
-    m_pSub->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "SUB:\n";
+    strResult += m_pSub->PrintInfo(_depth + 2);
     
-    Indent(_depth + 1); cout << "INDEX:" << endl;
-    m_pIndex->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "INDEX:\n";
+    strResult += m_pIndex->PrintInfo(_depth + 2);
     
-    Indent(_depth + 1); cout << "VALUE:" << endl;
-    m_pValue->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1) + "VALUE:\n";
+    strResult += m_pValue->PrintInfo(_depth + 2);
+    return strResult;
 }
 
 std::any SetElement::Interpret()
@@ -426,17 +529,22 @@ std::any SetElement::Interpret()
     return nullptr;
 }
 
-void Call::PrintInfo(int32 _depth)
+std::string Call::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "CALL:" << endl;
+    std::string strResult =
+        Indent(_depth); 
+    strResult += "CALL:\n";
     
-    Indent(_depth + 1); cout << "EXPRESSION:" << endl;
-    m_pSub->PrintInfo(_depth + 2);
+    strResult += Indent(_depth + 1); 
+    strResult += "EXPRESSION:\n";
+    strResult += m_pSub->PrintInfo(_depth + 2);
     
-    for (auto& node : m_vecArgument) {
-        Indent(_depth + 1); cout << "ARGUMENT:" << endl;
-        node->PrintInfo(_depth + 2);
+    for (auto& pNode : m_vecArgument) {
+        strResult += Indent(_depth + 1); 
+        strResult += "ARGUMENT:\n";
+        strResult += pNode->PrintInfo(_depth + 2);
     }
+    return strResult;
 }
 
 std::any Call::Interpret()
@@ -457,21 +565,21 @@ std::any Call::Interpret()
         auto name = Object::ToFunction(value)->m_vecParameter[i];
         mapParameter[name] = m_vecArgument[i]->Interpret();
     }
-    local.emplace_back().push_front(mapParameter);
+    GET_INTERPRETER().m_listLocalFrame.emplace_back().push_front(mapParameter);
     try {
         Object::ToFunction(value)->Interpret();
     }
     catch (ReturnException exception) {
-        local.pop_back();
+        GET_INTERPRETER().m_listLocalFrame.pop_back();
         return exception.result;
     }
-    local.pop_back();
+    GET_INTERPRETER().m_listLocalFrame.pop_back();
     return nullptr;
 }
 
-void NullLiteral::PrintInfo(int32 _depth) 
+std::string NullLiteral::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "null" << endl;
+    return Indent(_depth) + "null\n";
 }
 
 std::any NullLiteral::Interpret()
@@ -479,9 +587,9 @@ std::any NullLiteral::Interpret()
     return nullptr;
 }
 
-void BooleanLiteral::PrintInfo(int32 _depth)
+std::string BooleanLiteral::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << (m_bValue ? "true" : "false") << endl;
+    return Indent(_depth) + (m_bValue ? "true\n" : "false\n");
 }
 
 std::any BooleanLiteral::Interpret()
@@ -489,9 +597,9 @@ std::any BooleanLiteral::Interpret()
     return m_bValue;
 }
 
-void NumberLiteral::PrintInfo(int32 _depth)
+std::string NumberLiteral::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << m_dValue << endl;
+    return Indent(_depth) + std::to_string(m_dValue);
 }
 
 std::any NumberLiteral::Interpret()
@@ -499,9 +607,9 @@ std::any NumberLiteral::Interpret()
     return m_dValue;
 }
 
-void StringLiteral::PrintInfo(int32 _depth)
+std::string StringLiteral::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "\"" << m_strValue << "\"" << endl;
+    return Indent(_depth) + "\"" + m_strValue + "\"\n";
 }
 
 std::any StringLiteral::Interpret()
@@ -509,13 +617,15 @@ std::any StringLiteral::Interpret()
     return m_strValue;
 }
 
-void ArrayLiteral::PrintInfo(int32 _depth) 
+std::string ArrayLiteral::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "[" << endl;
-    for (auto& node : m_vecValue) {
-        node->PrintInfo(_depth + 1);
+    std::string strResult;
+    strResult += Indent(_depth) + "[\n";
+    for (auto& pNode : m_vecValue) {
+        strResult += pNode->PrintInfo(_depth + 1);
     }
-    Indent(_depth); cout << "]" << endl;
+    strResult += Indent(_depth) + "]\n";
+    return strResult;
 }
 
 std::any ArrayLiteral::Interpret()
@@ -527,14 +637,15 @@ std::any ArrayLiteral::Interpret()
     return result;
 }
 
-void MapLiteral::PrintInfo(int32 _depth)
+std::string MapLiteral::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "{" << endl;
+    std::string strResult;
+    strResult += Indent(_depth) + "{\n";
     for (auto& [key, value] : m_mapValue) {
-        cout << key << ": ";
-        value->PrintInfo(_depth + 1);
+        strResult += key + ": " + value->PrintInfo(_depth + 1);
     }
-    Indent(_depth); cout << "}" << endl;
+    strResult += Indent(_depth) + "}\n";
+    return strResult;
 }
 
 std::any MapLiteral::Interpret()
@@ -546,42 +657,44 @@ std::any MapLiteral::Interpret()
     return result;
 }
 
-void GetVariable::PrintInfo(int32 _depth)
+std::string GetVariable::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "GET_VARIABLE: " << m_strName << endl;
+    return Indent(_depth) + "GET_VARIABLE: " + m_strName + "\n";
 }
 
 std::any GetVariable::Interpret()
 {
-    for (auto& vecVariable : local.back()) {
+    for (auto& vecVariable : GET_INTERPRETER().m_listLocalFrame.back()) {
         if (vecVariable.count(m_strName)) {
             return vecVariable[m_strName];
         }
     }
-    if (global.count(m_strName)) {
-        return global[m_strName];
+    if (GET_INTERPRETER().m_mapGlobal.count(m_strName)) {
+        return GET_INTERPRETER().m_mapGlobal[m_strName];
     }
-    if (functionTable.count(m_strName)) {
-        return functionTable[m_strName];
+    if (GET_INTERPRETER().m_mapFunctionTable.count(m_strName)) {
+        return GET_INTERPRETER().m_mapFunctionTable[m_strName];
     }
-    if (builtinFunctionTable.count(m_strName)) {
-        return builtinFunctionTable[m_strName];
+    if (GET_INTERPRETER().m_mapBuiltinFunctionTable.count(m_strName)) {
+        return GET_INTERPRETER().m_mapBuiltinFunctionTable[m_strName];
     }
     return nullptr;
 }
 
-void SetVariable::PrintInfo(int32 _depth)
+std::string SetVariable::PrintInfo(int32 _depth)
 {
-    Indent(_depth); cout << "SET_VARIABLE: " << m_strName << endl;
-    m_pValue->PrintInfo(_depth + 1);
+    std::string strResult;
+    strResult += Indent(_depth) + "SET_VARIABLE: " + m_strName + "\n";
+    strResult += m_pValue->PrintInfo(_depth + 1);
+    return strResult;
 }
 
 std::any SetVariable::Interpret()
 {
-    for (auto& variables : local.back()) {
+    for (auto& variables : GET_INTERPRETER().m_listLocalFrame.back()) {
         if (variables.count(m_strName)) {
             return variables[m_strName] = m_pValue->Interpret();
         }
     }
-    return global[m_strName] = m_pValue->Interpret();
+    return GET_INTERPRETER().m_mapGlobal[m_strName] = m_pValue->Interpret();
 }

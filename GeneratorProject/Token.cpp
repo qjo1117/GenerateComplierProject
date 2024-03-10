@@ -35,7 +35,12 @@ const std::string ToString(EKind _kind) noexcept
 	return "";
 }
 
-std::ostream& operator<<(std::ostream& _io, CodeToken& _token)
+std::string ToKindString(CodeToken& _token)
 {
-	return _io << std::setw(12) << std::left << ToString(_token.kind) << _token.name;
+	return ToString(_token.m_eKind);
+}
+
+std::string ToTokenString(CodeToken& _token)
+{
+	return _token.m_strName;
 }

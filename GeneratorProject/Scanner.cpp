@@ -93,11 +93,11 @@ std::vector<CodeToken> Scanner::Scan(std::string _sourceCode)
         }
         }
 
-        token.row = row;
-        token.col = col;
+        token.m_iRow = row;
+        token.m_iCol = col;
         result.push_back(token);
     }
-    result.push_back({ .kind = EKind::EndOfToken });
+    result.push_back({ .m_eKind = EKind::EndOfToken });
     return result;
 }
 
@@ -114,7 +114,7 @@ CodeToken Scanner::ScanNumberLiteral()
             str += *m_info++;
         }
     }
-    return { .name = str, .kind = EKind::NumberLiteral };
+    return { .m_strName = str, .m_eKind = EKind::NumberLiteral };
 }
 
 CodeToken Scanner::ScanStringLiteral()
@@ -130,7 +130,7 @@ CodeToken Scanner::ScanStringLiteral()
         exit(1);
     }
     m_info++;
-    return { .name = str, .kind = EKind::StringLiteral };
+    return { .m_strName = str, .m_eKind = EKind::StringLiteral };
 }
 
 CodeToken Scanner::ScanIdentifierAndKeyword()
@@ -144,7 +144,7 @@ CodeToken Scanner::ScanIdentifierAndKeyword()
     if (kind == EKind::Unknown) {
         kind = EKind::Identifier;
     }
-    return { .name = str, .kind = kind };
+    return { .m_strName = str, .m_eKind = kind };
 }
 
 CodeToken Scanner::ScanOperatorAndPunctuator()
@@ -162,6 +162,6 @@ CodeToken Scanner::ScanOperatorAndPunctuator()
         std::cout << *m_info << " 사용할 수 없는 문자입니다.";
         exit(1);
     }
-    return { .name = str, .kind = ToKind(str) };
+    return { .m_strName = str, .m_eKind = ToKind(str) };
 }
 

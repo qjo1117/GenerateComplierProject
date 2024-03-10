@@ -58,12 +58,13 @@ enum class EKind
 
 struct CodeToken
 {
-	std::string name;
-	int32 row, col;
-	EKind kind = EKind::Unknown;
+	std::string m_strName;
+	int32 m_iRow, m_iCol;
+	EKind m_eKind = EKind::Unknown;
 };
 
 const EKind ToKind(const std::string& _str) noexcept;
 const std::string ToString(EKind _kind) noexcept;
 
-std::ostream& operator<<(std::ostream&, CodeToken& _token);
+std::string ToKindString(CodeToken& _token);
+std::string ToTokenString(CodeToken& _token);

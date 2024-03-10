@@ -5,13 +5,39 @@
 #include <vector>
 #include <string>
 #include <any>
+#include <list>
+#include <functional>
 #include "TypeDefine.h"
 #include "Token.h"
 
 class Function;
 class Program;
 
-void Interpret(std::shared_ptr<Program> _pProgram);
+class Interpreter
+{
+public:
+	using ScriptFunctionType = std::function<std::any(std::vector<std::any>)>;
+
+private:
+	Interpreter();
+	~Interpreter() { }
+public:
+	static Interpreter& GetInstance()
+	{
+		static Interpreter instance;
+		return instance;
+	}
+#define GET_INTERPRETER() Interpreter::GetInstance()
+
+public:
+	void Interpret(std::shared_ptr<Program> _pProgram);
+
+public:
+	inline static std::map<std::string, std::any> m_mapGlobal;
+	inline static std::list<std::list<std::map<std::string, std::any>>> m_listLocalFrame;
+	inline static std::map<std::string, std::shared_ptr<Function>> m_mapFunctionTable;
+	inline static std::map<std::string, ScriptFunctionType> m_mapBuiltinFunctionTable;
+};
 
 class Program 
 {
@@ -22,21 +48,21 @@ public:
 class Statement 
 {
 public:
-	virtual void PrintInfo(int32 _depth) = 0;
+	virtual std::string PrintInfo(int32 _depth) = 0;
 	virtual void Interpret() = 0;
 };
 
 class Expression 
 {
 public:
-	virtual void PrintInfo(int32 _depth) = 0;
+	virtual std::string PrintInfo(int32 _depth) = 0;
 	virtual std::any Interpret() = 0;
 };
 
 class Function : public Statement 
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
 
 public:
@@ -48,7 +74,7 @@ public:
 class Variable : public Statement 
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
 
 public:
@@ -60,7 +86,7 @@ public:
 class Return : public Statement 
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
 
 public:
@@ -70,7 +96,7 @@ public:
 class For : public Statement 
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
 
 public:
@@ -83,21 +109,21 @@ public:
 class Break : public Statement 
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
 };
 
 class Continue : public Statement 
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
 };
 
 class If : public Statement 
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
 
 public:
@@ -109,18 +135,18 @@ public:
 class Print : public Statement 
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
 
 public:	
-	bool lineFeed = false;
+	bool m_bLineFeed = false;
 	std::vector<std::shared_ptr<Expression>> m_vecArgument;
 };
 
 class ExpressionStatement : public Statement 
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
 
 public:
@@ -130,7 +156,7 @@ public:
 class Or : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -141,7 +167,7 @@ public:
 class And : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -152,7 +178,7 @@ public:
 class Relational : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -164,7 +190,7 @@ public:
 class Arithmetic : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -176,7 +202,7 @@ public:
 class Unary : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -187,7 +213,7 @@ public:
 class Call : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -198,7 +224,7 @@ public:
 class GetElement : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -209,7 +235,7 @@ public:
 class SetElement : public Expression 
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -221,7 +247,7 @@ public:
 class GetVariable : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -231,7 +257,7 @@ public:
 class SetVariable : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -242,14 +268,14 @@ public:
 class NullLiteral : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 };
 
 class BooleanLiteral : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -259,7 +285,7 @@ public:
 class NumberLiteral : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -269,7 +295,7 @@ public:
 class StringLiteral : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -279,7 +305,7 @@ public:
 class ArrayLiteral : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:
@@ -289,7 +315,7 @@ public:
 class MapLiteral : public Expression
 {
 public:
-	void PrintInfo(int32 _depth) override;
+	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
 
 public:

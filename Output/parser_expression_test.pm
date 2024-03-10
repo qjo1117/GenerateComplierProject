@@ -1,4 +1,4 @@
 function main() {
-  var a = 1*2+3*4;
-  print a;
+  printline "Hello World1";
+  printline "Hello World2";
 }

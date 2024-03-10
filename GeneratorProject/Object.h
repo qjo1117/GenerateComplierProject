@@ -56,4 +56,5 @@ struct Map : Object
 	std::map<std::string, std::any> m_mapValue;
 };
 
+std::string AnyToString(std::any _anyValue);
 std::ostream& operator<<(ostream& _os, any& _anyValue);
