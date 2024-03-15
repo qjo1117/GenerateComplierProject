@@ -46,9 +46,12 @@ public:
 	std::shared_ptr<Expression> ParseMapLiteral();
 	std::shared_ptr<Expression> ParseIdentifier();
 	std::shared_ptr<Expression> ParseInnerExpression();
-	std::shared_ptr<Expression> ParsePostfix(std::shared_ptr<Expression> _pExpression);
-	std::shared_ptr<Expression> ParseCall(std::shared_ptr<Expression> _pExpression);
-	std::shared_ptr<Expression> ParseElement(std::shared_ptr<Expression> _pExpression);
+	std::shared_ptr<Expression> ParsePostfix(std::shared_ptr<Expression> _pSub);
+	std::shared_ptr<Expression> ParseCall(std::shared_ptr<Expression> _pSub);
+	std::shared_ptr<Expression> ParseElement(std::shared_ptr<Expression> _pSub);
+	std::shared_ptr<Class> ParseClass();
+	std::shared_ptr<GetClassAccess> ParseClassAccess(std::shared_ptr<Expression> _pSub);
+	
 	void SkipCurrent();
 	void SkipCurrent(EKind _eKind);
 	bool SkipCurrentIf(EKind _eKind);

@@ -285,6 +285,7 @@ std::string Break::PrintInfo(int32 _depth)
 
 void Break::Interpret()
 {
+    throw BreakException();
 }
 
 std::string Continue::PrintInfo(int32 _depth)
@@ -294,6 +295,7 @@ std::string Continue::PrintInfo(int32 _depth)
 
 void Continue::Interpret()
 {
+    throw ContinueException();
 }
 
 std::string ExpressionStatement::PrintInfo(int32 _depth)
@@ -719,4 +721,44 @@ std::any SetVariable::Interpret()
         }
     }
     return GET_INTERPRETER().m_mapGlobal[m_strName] = m_pValue->Interpret();
+}
+
+std::string Class::PrintInfo(int32 _depth)
+{
+    std::string strResult =
+        Indent(_depth) + "CLASS: " + m_strName + '\n';
+
+    for (auto& pVariable : m_vecVariable)
+    {
+        if (pVariable.m_pVariable == nullptr) {
+            continue;
+        }
+        strResult += pVariable.m_pVariable->PrintInfo(_depth + 1) + '\n';
+    }
+    return strResult;
+}
+
+void Class::Interpret()
+{
+    GET_INTERPRETER().m_listLocalFrame.back().front()[m_strName] = *this;
+}
+
+std::string SetClassAccess::PrintInfo(int32 _depth)
+{
+    return std::string();
+}
+
+std::any SetClassAccess::Interpret()
+{
+    return 1;
+}
+
+std::string GetClassAccess::PrintInfo(int32 _depth)
+{
+    return std::string();
+}
+
+std::any GetClassAccess::Interpret()
+{
+    return 1;
 }

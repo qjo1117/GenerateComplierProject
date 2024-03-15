@@ -1,0 +1,20 @@
+{
+    "name": "pm debugger",
+    "displayName": "pm debugger",
+    "description": "pm debugger",
+    "version": "1.0.0",
+    "preview": false,
+    "categories": [
+        "Debuggers"
+    ],
+    "contributes": {
+        "debuggers": [
+            {
+                "type": "pm",
+                "program": "pm",
+                "label": "pm debugger",
+                "configurationAttributes": {}
+            }
+        ]
+    }
+}

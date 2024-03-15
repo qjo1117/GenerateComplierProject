@@ -136,6 +136,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Debugger.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MainView.cpp" />
     <ClCompile Include="Node.cpp" />
@@ -143,10 +144,12 @@
     <ClCompile Include="Parser.cpp" />
     <ClCompile Include="Scanner.cpp" />
     <ClCompile Include="ResultConsoleView.cpp" />
+    <ClCompile Include="Task.cpp" />
     <ClCompile Include="Token.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
+    <ClInclude Include="Debugger.h" />
     <ClInclude Include="IWindowView.h" />
     <ClInclude Include="MainView.h" />
     <ClInclude Include="Node.h" />
@@ -154,6 +157,7 @@
     <ClInclude Include="Parser.h" />
     <ClInclude Include="Scanner.h" />
     <ClInclude Include="ResultConsoleView.h" />
+    <ClInclude Include="Task.h" />
     <ClInclude Include="Token.h" />
     <ClInclude Include="TypeDefine.h" />
   </ItemGroup>

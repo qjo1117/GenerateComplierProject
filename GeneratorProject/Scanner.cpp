@@ -89,7 +89,7 @@ std::vector<CodeToken> Scanner::Scan(std::string _sourceCode)
         }
         default: {
             std::cout << *m_info << " 사용할 수 없는 문자입니다.\n" << "Row : " << row << " Col : " << col << '\n';
-            exit(1);
+            throw;
         }
         }
 
@@ -127,7 +127,7 @@ CodeToken Scanner::ScanStringLiteral()
     }
     if (*m_info != '\'' && *m_info != '\"') {
         std::cout << "문자열의 종료 문자가 없습니다.";
-        exit(1);
+        throw;
     }
     m_info++;
     return { .m_strName = str, .m_eKind = EKind::StringLiteral };
@@ -160,7 +160,7 @@ CodeToken Scanner::ScanOperatorAndPunctuator()
     }
     if (str.empty()) {
         std::cout << *m_info << " 사용할 수 없는 문자입니다.";
-        exit(1);
+        throw;
     }
     return { .m_strName = str, .m_eKind = ToKind(str) };
 }

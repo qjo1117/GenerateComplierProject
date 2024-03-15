@@ -7,53 +7,9 @@
 
 enum class EKind
 {
-	Unknown,
-	EndOfToken,
-	NullLiteral,
-	TrueLiteral,
-	FalseLiteral,
-	NumberLiteral,
-	StringLiteral,
-	Identifier,
-
-	Function,
-	Return,
-	Variable,
-	For,
-	Break,
-	Continue,
-	If,
-	ElIf,
-	Else,
-	
-	Print,
-	PrintLine,
-
-	LogicalAnd,
-	LogicalOr,
-	Assignment,
-	Add,
-	Subtract,
-	Multiply,
-	Divide,
-	Modulo,
-	Equal,
-	NotEqual,
-
-	LessThan,
-	GreaterThan,
-	LessOrEqual,
-	GreaterOrEqual,
-
-	Comma,
-	Colon,
-	Semicolon,
-	LeftParen,
-	RightParen,
-	LeftBrace,
-	RightBrace,
-	LeftBraket,
-	RightBraket,
+#define X(A, B) B,
+#include "TokenDefine.ini"
+#undef X
 };
 
 struct CodeToken

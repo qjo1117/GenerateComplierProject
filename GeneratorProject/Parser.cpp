@@ -7,183 +7,186 @@ namespace
 
 std::shared_ptr<Program> Parser::Parse(std::vector<CodeToken> _tokens)
 {
-    auto result = std::make_shared<Program>();
+    auto pResult = std::make_shared<Program>();
     g_current = _tokens.begin();
     while (g_current->m_eKind != EKind::EndOfToken) {
         switch (g_current->m_eKind) {
         case EKind::Function: {
-            result->m_vecFunction.push_back(ParseFunction());
+            pResult->m_vecFunction.push_back(ParseFunction());
+            break;
+        case EKind::Class:
+            pResult->m_vecClass.push_back(ParseClass());
             break;
         }
         default: {
-            exit(1);
+            throw;
         }
         }
     }
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Function> Parser::ParseFunction()
 {
-    auto result = std::make_shared<Function>();
+    auto pResult = std::make_shared<Function>();
     SkipCurrent(EKind::Function);
-    result->m_strName = g_current->m_strName;
+    pResult->m_strName = g_current->m_strName;
     SkipCurrent(EKind::Identifier);
     SkipCurrent(EKind::LeftParen);
     if (g_current->m_eKind != EKind::RightParen) {
         do {
-            result->m_vecParameter.push_back(g_current->m_strName);
+            pResult->m_vecParameter.push_back(g_current->m_strName);
             SkipCurrent(EKind::Identifier);
         } while (SkipCurrentIf(EKind::Comma));
     }
     SkipCurrent(EKind::RightParen);
     SkipCurrent(EKind::LeftBrace);
-    result->m_vecBlock = ParseBlock();
+    pResult->m_vecBlock = ParseBlock();
     SkipCurrent(EKind::RightBrace);
-    return result;
+    return pResult;
 }
 
 std::vector<std::shared_ptr<Statement>> Parser::ParseBlock()
 {
-    std::vector<std::shared_ptr<Statement>> result;
+    std::vector<std::shared_ptr<Statement>> pResult;
     while (g_current->m_eKind != EKind::RightBrace) {
         switch (g_current->m_eKind) {
-        case EKind::Variable:   result.push_back(ParseVariable());            break;
-        case EKind::For:        result.push_back(ParseFor());                 break;
-        case EKind::If:         result.push_back(ParseIf());                  break;
+        case EKind::Variable:   pResult.push_back(ParseVariable());            break;
+        case EKind::For:        pResult.push_back(ParseFor());                 break;
+        case EKind::If:         pResult.push_back(ParseIf());                  break;
         case EKind::Print:
-        case EKind::PrintLine:  result.push_back(ParsePrint());               break;
-        case EKind::Return:     result.push_back(ParseReturn());              break;
-        case EKind::Break:      result.push_back(ParseBreak());               break;
-        case EKind::Continue:   result.push_back(ParseContinue());            break;
+        case EKind::PrintLine:  pResult.push_back(ParsePrint());               break;
+        case EKind::Return:     pResult.push_back(ParseReturn());              break;
+        case EKind::Break:      pResult.push_back(ParseBreak());               break;
+        case EKind::Continue:   pResult.push_back(ParseContinue());            break;
         case EKind::EndOfToken:
-            exit(1);
+            throw;
             break;
-        default: result.push_back(ParseExpressionStatement()); break;
+        default: pResult.push_back(ParseExpressionStatement()); break;
         }
     }
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Variable> Parser::ParseVariable()
 {
-    auto result = std::make_shared<Variable>();
+    auto pResult = std::make_shared<Variable>();
     SkipCurrent(EKind::Variable);
-    result->m_strName = g_current->m_strName;
+    pResult->m_strName = g_current->m_strName;
     SkipCurrent(EKind::Identifier);
     if (SkipCurrentIf(EKind::Assignment)) {
-        result->m_pExpression = ParseExpression();
-        if (result->m_pExpression == nullptr) {
+        pResult->m_pExpression = ParseExpression();
+        if (pResult->m_pExpression == nullptr) {
             std::cout << "변수 선언에 초기화식이 없습니다.";
-            exit(1);
+            throw;
         }
     }
     SkipCurrent(EKind::Semicolon);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<For> Parser::ParseFor()
 {
-    auto result = std::make_shared<For>();
+    auto pResult = std::make_shared<For>();
     SkipCurrent(EKind::For);
-    result->m_pVariable = std::make_shared<Variable>();
-    result->m_pVariable->m_strName = g_current->m_strName;
+    pResult->m_pVariable = std::make_shared<Variable>();
+    pResult->m_pVariable->m_strName = g_current->m_strName;
     SkipCurrent(EKind::Identifier);
     SkipCurrent(EKind::Assignment);
-    result->m_pVariable->m_pExpression = ParseExpression();
-    if (result->m_pVariable->m_pExpression == nullptr) {
+    pResult->m_pVariable->m_pExpression = ParseExpression();
+    if (pResult->m_pVariable->m_pExpression == nullptr) {
         std::cout << "for문에 초기화식이 없습니다.";
-        exit(1);
+        throw;
     }
     SkipCurrent(EKind::Comma);
-    result->m_pCondition = ParseExpression();
-    if (result->m_pCondition == nullptr) {
+    pResult->m_pCondition = ParseExpression();
+    if (pResult->m_pCondition == nullptr) {
         std::cout << "for문에 조건식이 없습니다.";
-        exit(1);
+        throw;
     }
     SkipCurrent(EKind::Comma);
-    result->m_pExpression = ParseExpression();
-    if (result->m_pExpression == nullptr) {
+    pResult->m_pExpression = ParseExpression();
+    if (pResult->m_pExpression == nullptr) {
         std::cout << "for문에 증감식이 없습니다.";
-        exit(1);
+        throw;
     }
     SkipCurrent(EKind::LeftBrace);
-    result->m_vecBlock = ParseBlock();
+    pResult->m_vecBlock = ParseBlock();
     SkipCurrent(EKind::RightBrace);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<If> Parser::ParseIf()
 {
-    auto result = std::make_shared<If>();
+    auto pResult = std::make_shared<If>();
     SkipCurrent(EKind::If);
     do {
         auto condition = ParseExpression();
         if (condition == nullptr) {
             std::cout << "if문에 조건식이 없습니다.";
-            exit(1);
+            throw;
         }
-        result->m_vecCondition.push_back(condition);
+        pResult->m_vecCondition.push_back(condition);
         SkipCurrent(EKind::LeftBrace);
-        result->m_vecBlocks.push_back(ParseBlock());
+        pResult->m_vecBlocks.push_back(ParseBlock());
         SkipCurrent(EKind::RightBrace);
     } while (SkipCurrentIf(EKind::ElIf));
     if (SkipCurrentIf(EKind::Else)) {
         SkipCurrent(EKind::LeftBrace);
-        result->m_vecElseBlock = ParseBlock();
+        pResult->m_vecElseBlock = ParseBlock();
         SkipCurrent(EKind::RightBrace);
     }
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Print> Parser::ParsePrint()
 {
-    auto result = std::make_shared<Print>();
-    result->m_bLineFeed = g_current->m_eKind == EKind::PrintLine;
+    auto pResult = std::make_shared<Print>();
+    pResult->m_bLineFeed = g_current->m_eKind == EKind::PrintLine;
     SkipCurrent();
     if (g_current->m_eKind != EKind::Semicolon) {
         do {
-            result->m_vecArgument.push_back(ParseExpression());
+            pResult->m_vecArgument.push_back(ParseExpression());
         } while (SkipCurrentIf(EKind::Comma));
     }
     SkipCurrent(EKind::Semicolon);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Return> Parser::ParseReturn()
 {
-    auto result = std::make_shared<Return>();
+    auto pResult = std::make_shared<Return>();
     SkipCurrent(EKind::Return);
-    result->m_pExpression = ParseExpression();
-    if (result->m_pExpression == nullptr) {
+    pResult->m_pExpression = ParseExpression();
+    if (pResult->m_pExpression == nullptr) {
         std::cout << "return문에 식이 없습니다.";
-        exit(1);
+        throw;
     }
     SkipCurrent(EKind::Semicolon);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Break> Parser::ParseBreak()
 {
-    auto result = std::make_shared<Break>();
+    auto pResult = std::make_shared<Break>();
     SkipCurrent(EKind::Break);
     SkipCurrent(EKind::Semicolon);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Continue> Parser::ParseContinue() {
-    auto result = std::make_shared<Continue>();
+    auto pResult = std::make_shared<Continue>();
     SkipCurrent(EKind::Continue);
     SkipCurrent(EKind::Semicolon);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<ExpressionStatement> Parser::ParseExpressionStatement()
 {
-    auto result = std::make_shared<ExpressionStatement>();
-    result->m_pExpression = ParseExpression();
+    auto pResult = std::make_shared<ExpressionStatement>();
+    pResult->m_pExpression = ParseExpression();
     SkipCurrent(EKind::Semicolon);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseExpression()
@@ -193,51 +196,57 @@ std::shared_ptr<Expression> Parser::ParseExpression()
 
 std::shared_ptr<Expression> Parser::ParseAssignment()
 {
-    auto result = ParseOr();
+    auto pResult = ParseOr();
     if (g_current->m_eKind != EKind::Assignment) {
-        return result;
+        return pResult;
     }
 
     SkipCurrent(EKind::Assignment);
-    if (auto getVariable = std::dynamic_pointer_cast<GetVariable>(result)) {
-        auto result = std::make_shared<SetVariable>();
-        result->m_strName = getVariable->m_strName;
-        result->m_pValue = ParseAssignment();
-        return result;
+    if (auto getVariable = std::dynamic_pointer_cast<GetVariable>(pResult)) {
+        auto pResult = std::make_shared<SetVariable>();
+        pResult->m_strName = getVariable->m_strName;
+        pResult->m_pValue = ParseAssignment();
+        return pResult;
     }
-    if (auto getElement = std::dynamic_pointer_cast<GetElement>(result)) {
-        auto result = std::make_shared<SetElement>();
-        result->m_pSub = getElement->m_pSub;
-        result->m_pIndex = getElement->m_pIndex;
-        result->m_pValue = ParseAssignment();
-        return result;
+    if (auto getElement = std::dynamic_pointer_cast<GetElement>(pResult)) {
+        auto pResult = std::make_shared<SetElement>();
+        pResult->m_pSub = getElement->m_pSub;
+        pResult->m_pIndex = getElement->m_pIndex;
+        pResult->m_pValue = ParseAssignment();
+        return pResult;
+    }
+    if (auto pGetClassAccess = std::dynamic_pointer_cast<GetClassAccess>(pResult)) {
+        auto pResult = std::make_shared<SetClassAccess>();
+        pResult->m_pSub = pGetClassAccess->m_pSub;
+        pResult->m_pMember = pGetClassAccess->m_pMember;
+        pResult->m_pValue = ParseAssignment();
     }
     std::cout << "잘못된 대입 연산 식입니다.";
-    exit(1);
+    throw;
 }
 
 std::shared_ptr<Expression> Parser::ParseOr()
 {
-    auto result = ParseAnd();
+    auto pResult = ParseAnd();
     while (SkipCurrentIf(EKind::LogicalOr)) {
         auto temp = std::make_shared<Or>();
-        temp->m_pLhs = result;
+        temp->m_pLhs = pResult;
         temp->m_pRhs = ParseAnd();
-        result = temp;
+        pResult = temp;
     }
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseAnd()
 {
-    auto result = ParseRelational();
+    auto pResult = ParseRelational();
     while (SkipCurrentIf(EKind::LogicalAnd)) {
         auto temp = std::make_shared<And>();
-        temp->m_pLhs = result;
+        temp->m_pLhs = pResult;
         temp->m_pRhs = ParseRelational();
-        result = temp;
+        pResult = temp;
     }
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseRelational()
@@ -250,16 +259,16 @@ std::shared_ptr<Expression> Parser::ParseRelational()
       EKind::LessOrEqual,
       EKind::GreaterOrEqual,
     };
-    auto result = ParseArithmetic1();
+    auto pResult = ParseArithmetic1();
     while (operators.count(g_current->m_eKind)) {
         auto temp = std::make_shared<Relational>();
         temp->m_eKind = g_current->m_eKind;
         SkipCurrent();
-        temp->m_pLhs = result;
+        temp->m_pLhs = pResult;
         temp->m_pRhs = ParseArithmetic1();
-        result = temp;
+        pResult = temp;
     }
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseArithmetic1() {
@@ -267,16 +276,16 @@ std::shared_ptr<Expression> Parser::ParseArithmetic1() {
       EKind::Add,
       EKind::Subtract
     };
-    auto result = ParseArithmetic2();
+    auto pResult = ParseArithmetic2();
     while (operators.count(g_current->m_eKind)) {
         auto temp = std::make_shared<Arithmetic>();
         temp->m_eKind = g_current->m_eKind;
         SkipCurrent();
-        temp->m_pLhs = result;
+        temp->m_pLhs = pResult;
         temp->m_pRhs = ParseArithmetic2();
-        result = temp;
+        pResult = temp;
     }
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseArithmetic2()
@@ -286,16 +295,16 @@ std::shared_ptr<Expression> Parser::ParseArithmetic2()
       EKind::Divide,
       EKind::Modulo,
     };
-    auto result = ParseUnary();
+    auto pResult = ParseUnary();
     while (operators.count(g_current->m_eKind)) {
         auto temp = std::make_shared<Arithmetic>();
         temp->m_eKind = g_current->m_eKind;
         SkipCurrent();
-        temp->m_pLhs = result;
+        temp->m_pLhs = pResult;
         temp->m_pRhs = ParseUnary();
-        result = temp;
+        pResult = temp;
     }
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseUnary()
@@ -305,81 +314,81 @@ std::shared_ptr<Expression> Parser::ParseUnary()
       EKind::Subtract,
     };
     while (operators.count(g_current->m_eKind)) {
-        auto result = std::make_shared<Unary>();
-        result->m_eKind = g_current->m_eKind;
+        auto pResult = std::make_shared<Unary>();
+        pResult->m_eKind = g_current->m_eKind;
         SkipCurrent();
-        result->m_pSub = ParseUnary();
-        return result;
+        pResult->m_pSub = ParseUnary();
+        return pResult;
     }
     return ParseOperand();
 }
 
 std::shared_ptr<Expression> Parser::ParseOperand()
 {
-    std::shared_ptr<Expression> result = nullptr;
+    std::shared_ptr<Expression> pResult = nullptr;
     switch (g_current->m_eKind) {
-    case EKind::NullLiteral:   result = ParseNullLiteral();      break;
+    case EKind::NullLiteral:   pResult = ParseNullLiteral();      break;
     case EKind::TrueLiteral:
-    case EKind::FalseLiteral:  result = ParseBooleanLiteral();   break;
-    case EKind::NumberLiteral: result = ParseNumberLiteral();    break;
-    case EKind::StringLiteral: result = ParseStringLiteral();    break;
-    case EKind::LeftBraket:    result = ParseListLiteral();      break;
-    case EKind::LeftBrace:     result = ParseMapLiteral();       break;
-    case EKind::Identifier:    result = ParseIdentifier();       break;
-    case EKind::LeftParen:     result = ParseInnerExpression();  break;
-    default:                  std::cout << "잘못된 식입니다.";       exit(1);
+    case EKind::FalseLiteral:  pResult = ParseBooleanLiteral();   break;
+    case EKind::NumberLiteral: pResult = ParseNumberLiteral();    break;
+    case EKind::StringLiteral: pResult = ParseStringLiteral();    break;
+    case EKind::LeftBraket:    pResult = ParseListLiteral();      break;
+    case EKind::LeftBrace:     pResult = ParseMapLiteral();       break;
+    case EKind::Identifier:    pResult = ParseIdentifier();       break;
+    case EKind::LeftParen:     pResult = ParseInnerExpression();  break;
+    default:                  std::cout << "잘못된 식입니다.";       throw;
     }
-    return ParsePostfix(result);
+    return ParsePostfix(pResult);
 }
 
 std::shared_ptr<Expression> Parser::ParseNullLiteral()
 {
     SkipCurrent(EKind::NullLiteral);
-    auto result = std::make_shared<NullLiteral>();
-    return result;
+    auto pResult = std::make_shared<NullLiteral>();
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseBooleanLiteral()
 {
-    auto result = std::make_shared<BooleanLiteral>();
-    result->m_bValue = g_current->m_eKind == EKind::TrueLiteral;
+    auto pResult = std::make_shared<BooleanLiteral>();
+    pResult->m_bValue = g_current->m_eKind == EKind::TrueLiteral;
     SkipCurrent();
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseNumberLiteral()
 {
-    auto result = std::make_shared<NumberLiteral>();
-    result->m_dValue = std::stod(g_current->m_strName);
+    auto pResult = std::make_shared<NumberLiteral>();
+    pResult->m_dValue = std::stod(g_current->m_strName);
     SkipCurrent(EKind::NumberLiteral);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseStringLiteral()
 {
-    auto result = std::make_shared<StringLiteral>();
-    result->m_strValue = g_current->m_strName;
+    auto pResult = std::make_shared<StringLiteral>();
+    pResult->m_strValue = g_current->m_strName;
     SkipCurrent(EKind::StringLiteral);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseListLiteral()
 {
-    auto result = std::make_shared<ArrayLiteral>();
+    auto pResult = std::make_shared<ArrayLiteral>();
     SkipCurrent(EKind::LeftBraket);
     if (g_current->m_eKind != EKind::RightBraket) {
         do
         {
-            result->m_vecValue.push_back(ParseExpression());
+            pResult->m_vecValue.push_back(ParseExpression());
         } while (SkipCurrentIf(EKind::Comma));
     }
     SkipCurrent(EKind::RightBraket);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseMapLiteral()
 {
-    auto result = std::make_shared<MapLiteral>();
+    auto pResult = std::make_shared<MapLiteral>();
     SkipCurrent(EKind::LeftBrace);
     if (g_current->m_eKind != EKind::RightBrace) {
         do {
@@ -387,27 +396,27 @@ std::shared_ptr<Expression> Parser::ParseMapLiteral()
             SkipCurrent(EKind::StringLiteral);
             SkipCurrent(EKind::Colon);
             auto value = ParseExpression();
-            result->m_mapValue[name] = value;
+            pResult->m_mapValue[name] = value;
         } while (SkipCurrentIf(EKind::Comma));
     }
     SkipCurrent(EKind::RightBrace);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseIdentifier()
 {
-    auto result = std::make_shared<GetVariable>();
-    result->m_strName = g_current->m_strName;
+    auto pResult = std::make_shared<GetVariable>();
+    pResult->m_strName = g_current->m_strName;
     SkipCurrent(EKind::Identifier);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseInnerExpression()
 {
     SkipCurrent(EKind::LeftParen);
-    auto result = ParseExpression();
+    auto pResult = ParseExpression();
     SkipCurrent(EKind::RightParen);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParsePostfix(std::shared_ptr<Expression> _pSub)
@@ -416,6 +425,7 @@ std::shared_ptr<Expression> Parser::ParsePostfix(std::shared_ptr<Expression> _pS
         switch (g_current->m_eKind) {
         case EKind::LeftParen:  _pSub = ParseCall(_pSub);    break;
         case EKind::LeftBraket: _pSub = ParseElement(_pSub); break;
+        case EKind::ClassAccess:_pSub = ParseClassAccess(_pSub);       break;
         default: return _pSub;
         }
     }
@@ -423,25 +433,61 @@ std::shared_ptr<Expression> Parser::ParsePostfix(std::shared_ptr<Expression> _pS
 
 std::shared_ptr<Expression> Parser::ParseCall(std::shared_ptr<Expression> _pSub)
 {
-    auto result = std::make_shared<Call>();
-    result->m_pSub = _pSub;
+    auto pResult = std::make_shared<Call>();
+    pResult->m_pSub = _pSub;
     SkipCurrent(EKind::LeftParen);
     if (g_current->m_eKind != EKind::RightParen) {
-        do result->m_vecArgument.push_back(ParseExpression());
+        do pResult->m_vecArgument.push_back(ParseExpression());
         while (SkipCurrentIf(EKind::Comma));
     }
     SkipCurrent(EKind::RightParen);
-    return result;
+    return pResult;
 }
 
 std::shared_ptr<Expression> Parser::ParseElement(std::shared_ptr<Expression> _pSub)
 {
-    auto result = std::make_shared<GetElement>();
-    result->m_pSub = _pSub;
+    auto pResult = std::make_shared<GetElement>();
+    pResult->m_pSub = _pSub;
     SkipCurrent(EKind::LeftBraket);
-    result->m_pIndex = ParseExpression();
+    pResult->m_pIndex = ParseExpression();
     SkipCurrent(EKind::RightBraket);
-    return result;
+    return pResult;
+}
+
+std::shared_ptr<Class> Parser::ParseClass()
+{
+    auto pResult = std::make_shared<Class>();
+
+    SkipCurrent(EKind::Class);
+    pResult->m_strName = g_current->m_strName;
+    SkipCurrent(EKind::Identifier);
+    SkipCurrent(EKind::LeftBrace);
+    do {
+        EMemberAccess access = EMemberAccess::Private;
+        if (SkipCurrentIf(EKind::Private)) {
+            access = EMemberAccess::Private;
+        }
+        else if (SkipCurrentIf(EKind::Public)) {
+            access = EMemberAccess::Public;
+        }
+        else if (SkipCurrentIf(EKind::Protected)) {
+            access = EMemberAccess::Protected;
+        }
+        pResult->m_vecVariable.push_back({ .m_pVariable = ParseVariable(), .m_eAccess = access });
+    } while (g_current->m_eKind != EKind::RightBrace);
+    SkipCurrent(EKind::RightBrace);
+    SkipCurrent(EKind::Semicolon);
+
+    return pResult;
+}
+
+std::shared_ptr<GetClassAccess> Parser::ParseClassAccess(std::shared_ptr<Expression> _pSub)
+{
+    auto pResult = std::make_shared<GetClassAccess>();
+    pResult->m_pSub = _pSub;
+    SkipCurrent(EKind::ClassAccess);   
+    pResult->m_pMember = ParseExpression();
+    return pResult;
 }
 
 void Parser::SkipCurrent()
@@ -452,7 +498,7 @@ void Parser::SkipCurrent()
 void Parser::SkipCurrent(EKind _eKind)
 {
     if (g_current->m_eKind != _eKind) {
-        exit(1);
+        throw;
     }
     g_current++;
 }

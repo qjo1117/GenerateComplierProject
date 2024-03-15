@@ -10,6 +10,7 @@
 #include "TypeDefine.h"
 #include "Token.h"
 
+class Class;
 class Function;
 class Program;
 
@@ -43,6 +44,7 @@ class Program
 {
 public:
 	std::vector<std::shared_ptr<Function>> m_vecFunction;
+	std::vector<std::shared_ptr<Class>> m_vecClass;
 };
 
 class Statement 
@@ -320,4 +322,55 @@ public:
 
 public:
 	std::map<std::string, std::shared_ptr<Expression>> m_mapValue;
+};
+
+
+enum class EMemberAccess
+{
+	None,
+	Private,
+	Public,
+	Protected,
+	Max
+};
+
+struct ClassMemberVariable
+{
+public:
+	std::shared_ptr<Variable> m_pVariable;
+	EMemberAccess m_eAccess = EMemberAccess::None;
+};
+
+class Class : public Statement
+{
+public:
+	std::string PrintInfo(int32 _depth) override;
+	void Interpret() override;
+
+public:
+	std::string m_strName;
+	std::vector<ClassMemberVariable> m_vecVariable;
+};
+
+class SetClassAccess : public Expression
+{
+public:
+	std::string PrintInfo(int32 _depth) override;
+	std::any Interpret() override;
+
+public:
+	std::shared_ptr<Expression> m_pSub;
+	std::shared_ptr<Expression> m_pMember;
+	std::shared_ptr<Expression> m_pValue;
+};
+
+class GetClassAccess : public Expression
+{
+public:
+	std::string PrintInfo(int32 _depth) override;
+	std::any Interpret() override;
+	
+public:
+	std::shared_ptr<Expression> m_pSub;
+	std::shared_ptr<Expression> m_pMember;
 };

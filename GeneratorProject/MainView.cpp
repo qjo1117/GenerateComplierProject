@@ -47,8 +47,11 @@ namespace
     std::string PrintSyntaxTree(std::shared_ptr<Program> _pProgram)
     {
         string strResult;
-        for (auto& node : _pProgram->m_vecFunction) {
-            strResult += node->PrintInfo(0);
+        for (auto& pNode : _pProgram->m_vecClass) {
+            strResult += pNode->PrintInfo(0);
+        }
+        for (auto& pNode : _pProgram->m_vecFunction) {
+            strResult += pNode->PrintInfo(0);
         }
         return strResult;
     }
@@ -136,12 +139,20 @@ void MainView::Update()
             stringBuffer << file.rdbuf();
 
             m_strFileContext = stringBuffer.str();
-            auto tokenList = Scanner::GetInstance().Scan(m_strFileContext);
-            m_strPrintTokenKindText = PrintTokenListKind(tokenList);
-            m_strPrintTokenStringText = PrintTokenListString(tokenList);
+            try
+            {
+                auto tokenList = Scanner::GetInstance().Scan(m_strFileContext);
+                m_strPrintTokenKindText = PrintTokenListKind(tokenList);
+                m_strPrintTokenStringText = PrintTokenListString(tokenList);
 
-            m_pProgram = Parser::GetInstance().Parse(tokenList);
-            m_strParserText = PrintSyntaxTree(m_pProgram);
+                m_pProgram = Parser::GetInstance().Parse(tokenList);
+                m_strParserText = PrintSyntaxTree(m_pProgram);
+            }
+            catch(std::out_of_range& e)
+            {
+                file.close();
+            }
+
             file.close();
         }
     }
