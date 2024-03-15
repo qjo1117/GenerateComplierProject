@@ -14,6 +14,15 @@ class Class;
 class Function;
 class Program;
 
+enum class EMemberAccess
+{
+	None,
+	Private,
+	Public,
+	Protected,
+	Max
+};
+
 class Interpreter
 {
 public:
@@ -28,7 +37,12 @@ public:
 		static Interpreter instance;
 		return instance;
 	}
-#define GET_INTERPRETER() Interpreter::GetInstance()
+#define GET_INTERPRETER()	Interpreter::GetInstance()
+#define GLOBAL_TABLE		GET_INTERPRETER().m_mapGlobal
+#define LOCAL_TABLE			GET_INTERPRETER().m_listLocalFrame
+#define FUNCTION_TABLE		GET_INTERPRETER().m_mapFunctionTable
+#define BUILTIN_TABLE		GET_INTERPRETER().m_mapBuiltinFunctionTable
+#define CLASS_TABLE			GET_INTERPRETER().m_mapClassDefaultTable
 
 public:
 	void Interpret(std::shared_ptr<Program> _pProgram);
@@ -38,6 +52,7 @@ public:
 	inline static std::list<std::list<std::map<std::string, std::any>>> m_listLocalFrame;
 	inline static std::map<std::string, std::shared_ptr<Function>> m_mapFunctionTable;
 	inline static std::map<std::string, ScriptFunctionType> m_mapBuiltinFunctionTable;
+	inline static std::map<std::string, std::vector<std::tuple<EMemberAccess, std::any>>> m_mapClassDefaultTable;
 };
 
 class Program 
@@ -291,6 +306,16 @@ public:
 	std::any Interpret() override;
 
 public:
+	uint64 m_uValue = 0;
+};
+
+class FloatLiteral : public Expression
+{
+public:
+	std::string PrintInfo(int32 _depth) override;
+	std::any Interpret() override;
+
+public:
 	float64 m_dValue = 0.0;
 };
 
@@ -324,16 +349,6 @@ public:
 	std::map<std::string, std::shared_ptr<Expression>> m_mapValue;
 };
 
-
-enum class EMemberAccess
-{
-	None,
-	Private,
-	Public,
-	Protected,
-	Max
-};
-
 struct ClassMemberVariable
 {
 public:
@@ -362,6 +377,7 @@ public:
 	std::shared_ptr<Expression> m_pSub;
 	std::shared_ptr<Expression> m_pMember;
 	std::shared_ptr<Expression> m_pValue;
+	std::string m_strName;
 };
 
 class GetClassAccess : public Expression
@@ -373,4 +389,5 @@ public:
 public:
 	std::shared_ptr<Expression> m_pSub;
 	std::shared_ptr<Expression> m_pMember;
+	std::string m_strName;
 };

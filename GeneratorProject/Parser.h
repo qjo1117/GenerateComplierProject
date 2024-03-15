@@ -41,6 +41,7 @@ public:
 	std::shared_ptr<Expression> ParseNullLiteral();
 	std::shared_ptr<Expression> ParseBooleanLiteral();
 	std::shared_ptr<Expression> ParseNumberLiteral();
+	std::shared_ptr<Expression> ParseFloatLiteral();
 	std::shared_ptr<Expression> ParseStringLiteral();
 	std::shared_ptr<Expression> ParseListLiteral();
 	std::shared_ptr<Expression> ParseMapLiteral();

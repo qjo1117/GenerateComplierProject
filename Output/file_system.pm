@@ -9,7 +9,8 @@ function Func(a, b)
 }
 
 function main() {
+    var val2 = 100;
     var val = Info;
-    val.a = 10;
+    val.a = 30;
     print Func('Hello ', "World");
 }

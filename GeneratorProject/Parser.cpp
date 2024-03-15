@@ -217,6 +217,7 @@ std::shared_ptr<Expression> Parser::ParseAssignment()
     }
     if (auto pGetClassAccess = std::dynamic_pointer_cast<GetClassAccess>(pResult)) {
         auto pResult = std::make_shared<SetClassAccess>();
+        pResult->m_strName = pGetClassAccess->m_strName;
         pResult->m_pSub = pGetClassAccess->m_pSub;
         pResult->m_pMember = pGetClassAccess->m_pMember;
         pResult->m_pValue = ParseAssignment();
@@ -331,6 +332,7 @@ std::shared_ptr<Expression> Parser::ParseOperand()
     case EKind::TrueLiteral:
     case EKind::FalseLiteral:  pResult = ParseBooleanLiteral();   break;
     case EKind::NumberLiteral: pResult = ParseNumberLiteral();    break;
+    case EKind::FloatLiteral:  pResult = ParseFloatLiteral();     break;
     case EKind::StringLiteral: pResult = ParseStringLiteral();    break;
     case EKind::LeftBraket:    pResult = ParseListLiteral();      break;
     case EKind::LeftBrace:     pResult = ParseMapLiteral();       break;
@@ -359,8 +361,16 @@ std::shared_ptr<Expression> Parser::ParseBooleanLiteral()
 std::shared_ptr<Expression> Parser::ParseNumberLiteral()
 {
     auto pResult = std::make_shared<NumberLiteral>();
-    pResult->m_dValue = std::stod(g_current->m_strName);
+    pResult->m_uValue = std::stoll(g_current->m_strName);
     SkipCurrent(EKind::NumberLiteral);
+    return pResult;
+}
+
+std::shared_ptr<Expression> Parser::ParseFloatLiteral()
+{
+    auto pResult = std::make_shared<FloatLiteral>();
+    pResult->m_dValue = std::stod(g_current->m_strName);
+    SkipCurrent(EKind::FloatLiteral);
     return pResult;
 }
 

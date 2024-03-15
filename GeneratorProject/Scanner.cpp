@@ -103,6 +103,7 @@ std::vector<CodeToken> Scanner::Scan(std::string _sourceCode)
 
 CodeToken Scanner::ScanNumberLiteral()
 {
+    EKind eKind = EKind::NumberLiteral;
     std::string str;
     while (IsCharType(*m_info, Scanner::ECharType::NumberLiteral)) {
         str += *m_info;
@@ -113,8 +114,9 @@ CodeToken Scanner::ScanNumberLiteral()
         while (IsCharType(*m_info, Scanner::ECharType::NumberLiteral)) {
             str += *m_info++;
         }
+        eKind = EKind::FloatLiteral;
     }
-    return { .m_strName = str, .m_eKind = EKind::NumberLiteral };
+    return { .m_strName = str, .m_eKind = eKind };
 }
 
 CodeToken Scanner::ScanStringLiteral()

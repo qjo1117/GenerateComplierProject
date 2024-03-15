@@ -1,4 +1,6 @@
 function main() {
-    var string = "Hello";
-    print string * 3;
+    var dTemp = 20;
+    var fTemp = 10;
+
+    print fTemp + dTemp;
 }

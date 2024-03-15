@@ -29,7 +29,9 @@ struct Object {
 	static bool IsBoolean(std::any _anyValue);
 	static bool ToBoolean(std::any _anyValue);
 	static bool IsNumber(std::any _anyValue);
-	static float64 ToNumber(std::any _anyValue);
+	static bool IsFloat(std::any _anyValue);
+	static uint64 ToNumber(std::any _anyValue);
+	static float64 ToFloat(std::any _anyValue);
 	static bool IsString(std::any _anyValue);
 	static std::string ToString(std::any _anyValue);
 	static bool IsArray(std::any _anyValue);

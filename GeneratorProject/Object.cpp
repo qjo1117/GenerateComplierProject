@@ -92,10 +92,20 @@ bool Object::ToBoolean(std::any _anyValue)
 
 bool Object::IsNumber(std::any _anyValue)
 {
-	return _anyValue.type() == typeid(double);
+	return _anyValue.type() == typeid(uint64);
 }
 
-float64 Object::ToNumber(std::any _anyValue)
+bool Object::IsFloat(std::any _anyValue)
+{
+	return _anyValue.type() == typeid(float64);
+}
+
+uint64 Object::ToNumber(std::any _anyValue)
+{
+	return std::any_cast<uint64>(_anyValue);
+}
+
+float64 Object::ToFloat(std::any _anyValue)
 {
 	return std::any_cast<float64>(_anyValue);
 }

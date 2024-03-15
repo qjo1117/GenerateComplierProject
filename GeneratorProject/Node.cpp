@@ -219,10 +219,10 @@ void If::Interpret()
 std::string Variable::PrintInfo(int32 _depth)
 {
     std::string strResult = 
-        Indent(_depth) + "VAR " + m_strName + ": \n";
+        Indent(_depth) + "VAR " + m_strName + ": ";
     if (m_pExpression) {
         // 없을 수도 있지
-        strResult += m_pExpression->PrintInfo(_depth + 1);
+        strResult += m_pExpression->PrintInfo(_depth + 1) + '\n';
     }
     return strResult;
 }
@@ -374,34 +374,62 @@ std::any Relational::Interpret()
         }
         return false;
     };
+    auto IsCrossFunc = [&lValue, &rValue](std::function<bool(std::any)> _isFunc1, std::function<bool(std::any)> _isFunc2) {
+        if (_isFunc1(lValue) && _isFunc2(rValue)) {
+            return 1;
+        }
+        if (_isFunc2(lValue) && _isFunc1(rValue)) {
+            return 2;
+        }
+        return 0;
+    };
 
-    if (m_eKind == EKind::Equal && IsFunc(Object::IsNull)) {
-        return true;
+    if (m_eKind == EKind::Equal) {
+        if (IsFunc(Object::IsNull)) {
+            return true;
+        }
+        if (IsFunc(Object::IsBoolean)) {
+            return Object::ToBoolean(lValue) == Object::ToBoolean(rValue);
+        }
+        if (IsFunc(Object::IsNumber)) {
+            return Object::ToNumber(lValue) == Object::ToNumber(rValue);
+        }
+        if (IsFunc(Object::IsFloat)) {
+            return Object::ToFloat(lValue) == Object::ToFloat(rValue);
+        }
+        if (IsFunc(Object::IsString)) {
+            return Object::ToString(lValue) == Object::ToString(rValue);
+        }
+
+        switch (int32 ret = IsCrossFunc(Object::IsNumber, Object::IsFloat)) {
+            case 1: return Object::ToNumber(lValue) == Object::ToFloat(rValue);
+            case 2: return Object::ToFloat(lValue) == Object::ToNumber(rValue);
+        }
+
+        switch (int32 ret = IsCrossFunc(Object::IsNumber, Object::IsString)) {
+            case 1: return std::to_string(Object::ToNumber(lValue)) == Object::ToString(rValue);
+            case 2: return Object::ToString(lValue) == std::to_string(Object::ToNumber(rValue));
+        }
     }
-    if (m_eKind == EKind::Equal && IsFunc(Object::IsBoolean)) {
-        return Object::ToBoolean(lValue) == Object::ToBoolean(rValue);
+
+    if (m_eKind == EKind::NotEqual) {
+        if (IsFunc(Object::IsNull)) {
+            return false;
+        }
+        if (Object::IsNull(lValue) || Object::IsNull(rValue)) {
+            return true;
+        }
+        if (IsFunc(Object::IsBoolean)) {
+            return Object::ToBoolean(lValue) != Object::ToBoolean(rValue);
+        }
+        if (IsFunc(Object::IsNumber)) {
+            return Object::ToNumber(lValue) != Object::ToNumber(rValue);
+        }
+        if (IsFunc(Object::IsString)) {
+            return Object::ToString(lValue) != Object::ToString(rValue);
+        }
     }
-    if (m_eKind == EKind::Equal && IsFunc(Object::IsNumber)) {
-        return Object::ToNumber(lValue) == Object::ToNumber(rValue);
-    }
-    if (m_eKind == EKind::Equal && IsFunc(Object::IsString)) {
-        return Object::ToString(lValue) == Object::ToString(rValue);
-    }
-    if (m_eKind == EKind::NotEqual && IsFunc(Object::IsNull)) {
-        return false;
-    }
-    if (m_eKind == EKind::NotEqual && Object::IsNull(lValue) || Object::IsNull(rValue)) {
-        return true;
-    }
-    if (m_eKind == EKind::NotEqual && IsFunc(Object::IsBoolean)) {
-        return Object::ToBoolean(lValue) != Object::ToBoolean(rValue);
-    }
-    if (m_eKind == EKind::NotEqual && IsFunc(Object::IsNumber)) {
-        return Object::ToNumber(lValue) != Object::ToNumber(rValue);
-    }
-    if (m_eKind == EKind::NotEqual && IsFunc(Object::IsString)) {
-        return Object::ToString(lValue) != Object::ToString(rValue);
-    }
+
     if (m_eKind == EKind::LessThan && IsFunc(Object::IsNumber)) {
         return Object::ToNumber(lValue) < Object::ToNumber(rValue);
     }
@@ -623,10 +651,20 @@ std::any BooleanLiteral::Interpret()
 
 std::string NumberLiteral::PrintInfo(int32 _depth)
 {
-    return Indent(_depth) + std::to_string(m_dValue);
+    return Indent(_depth) + std::to_string(m_uValue);
 }
 
 std::any NumberLiteral::Interpret()
+{
+    return m_uValue;
+}
+
+std::string FloatLiteral::PrintInfo(int32 _depth)
+{
+    return Indent(_depth) + std::to_string(m_dValue);
+}
+
+std::any FloatLiteral::Interpret()
 {
     return m_dValue;
 }
@@ -740,7 +778,17 @@ std::string Class::PrintInfo(int32 _depth)
 
 void Class::Interpret()
 {
-    GET_INTERPRETER().m_listLocalFrame.back().front()[m_strName] = *this;
+    for (auto& pVariable : m_vecVariable)
+    {
+        if (pVariable.m_pVariable->m_pExpression)
+        {
+            // var형식이기 때문에 초기값이라도 있어야 정의되도록하게 만든다.
+            throw;
+            continue;
+        }
+        auto tupleTemp = std::make_tuple(pVariable.m_eAccess, pVariable.m_pVariable->m_pExpression->Interpret());
+        CLASS_TABLE[m_strName].push_back(std::move(tupleTemp));
+    }
 }
 
 std::string SetClassAccess::PrintInfo(int32 _depth)
@@ -755,10 +803,14 @@ std::any SetClassAccess::Interpret()
 
 std::string GetClassAccess::PrintInfo(int32 _depth)
 {
-    return std::string();
+    std::string strResult = 
+        Indent(_depth) + "GET_CLASS_ACCESS:" + m_pSub->PrintInfo(_depth) + '\n';
+    strResult += m_pMember->PrintInfo(_depth + 1) + '\n';
+    return strResult;
 }
 
 std::any GetClassAccess::Interpret()
 {
-    return 1;
+    return m_pSub->Interpret();
 }
+
