@@ -15,9 +15,26 @@ namespace fs = std::filesystem;
 #include "Scanner.h"
 #include "Parser.h"
 #include "Object.h"
+#include "Machine.h"
 
 namespace
 {
+    // 문자열을 주어진 길이로 왼쪽으로 정렬하는 함수
+    std::string LeftAlign(const std::string& _str, size_t _width) {
+        if (_str.length() >= _width) {
+            return _str;
+        }
+        return _str + std::string(_width - _str.length(), ' ');
+    }
+
+    // 문자열을 주어진 길이로 오른쪽으로 정렬하는 함수
+    std::string RightAlign(const std::string& _str, size_t _width) {
+        if (_str.length() >= _width) {
+            return _str;
+        }
+        return std::string(_width - _str.length(), ' ') + _str;
+    }
+
     std::string GetExecutablePath() {
         std::string path;
         char buffer[MAX_PATH];
@@ -52,6 +69,26 @@ namespace
         }
         for (auto& pNode : _pProgram->m_vecFunction) {
             strResult += pNode->PrintInfo(0);
+        }
+        return strResult;
+    }
+
+    std::string PrintObjectCode(std::tuple<CodeList, FunctionMap>& _tupleCodeTable)
+    {
+        string strResult = "FUNCTION\t\tADDESS\n";
+        CodeList& vecCode = std::get<0>(_tupleCodeTable);
+        FunctionMap& mapFunction = std::get<1>(_tupleCodeTable);
+
+        strResult += string(18, '-') + '\n';
+        for (auto& [strFuncName, funcAddress] : mapFunction) {
+            strResult += std::format("{0}\t\t{1}\n", strFuncName, funcAddress);
+        }
+        strResult += '\n';
+        
+        strResult += "ADDR\tINSTRUCTION\tOPERAND\n";
+        strResult += string(36, '-') + '\n';
+        for (uint64 i = 0; i < vecCode.size(); ++i) {
+            strResult += std::format("{0}\t{1}\n", RightAlign(std::to_string(i), 8), PrintCode(vecCode[i]));
         }
         return strResult;
     }
@@ -95,9 +132,9 @@ void MainView::Update()
 {
     auto FuncPrintText = [](std::string& _str) {
         ImGui::BeginGroup();
-        ImGui::Text("==========================");
+        ImGui::Text("===================");
         ImGui::Text(_str.c_str());
-        ImGui::Text("==========================");
+        ImGui::Text("===================");
         ImGui::EndGroup();
         };
 
@@ -149,6 +186,39 @@ void MainView::Update()
                 m_strParserText = PrintSyntaxTree(m_pProgram);
             }
             catch(std::out_of_range& e)
+            {
+                file.close();
+            }
+
+            file.close();
+        }
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Generate")) {
+        auto findIt = g_mapPMFilePath.find(m_strInputFileBuffer.data());
+        if (findIt == g_mapPMFilePath.end()) {
+            return;
+        }
+
+        std::ifstream file;
+        file.open(g_directory + "\\" + findIt->first);
+        if (file.is_open()) {
+            std::stringstream stringBuffer;
+            stringBuffer << file.rdbuf();
+
+            m_strFileContext = stringBuffer.str();
+            try
+            {
+                auto tokenList = Scanner::GetInstance().Scan(m_strFileContext);
+                m_strPrintTokenKindText = PrintTokenListKind(tokenList);
+                m_strPrintTokenStringText = PrintTokenListString(tokenList);
+
+                m_pProgram = Parser::GetInstance().Parse(tokenList);
+                m_strParserText = PrintSyntaxTree(m_pProgram);
+                m_codeTable = Generater::GetInstance().Generate(m_pProgram);
+                m_strGenerateText = PrintObjectCode(m_codeTable);
+            }
+            catch (std::out_of_range& e)
             {
                 file.close();
             }
@@ -209,12 +279,17 @@ void MainView::Update()
         }
         FuncPrintText(m_strPrintTokenStringText);
     }
-    if (m_strParserText.empty() == false)
-    {
+    if (m_strParserText.empty() == false) {
         if (m_strPrintTokenStringText.empty() == false) {
             ImGui::SameLine();
         }
         FuncPrintText(m_strParserText);
+    }
+    if (m_strGenerateText.empty() == false) {
+        if (m_strParserText.empty() == false) {
+            ImGui::SameLine();
+        }
+        FuncPrintText(m_strGenerateText);
     }
 }
 
@@ -237,6 +312,7 @@ void MainView::Interpret()
 {
     if (m_pProgram)
     {
-        Interpreter::GetInstance().Interpret(m_pProgram);
+        //Interpreter::GetInstance().Interpret(m_pProgram);
+        Machine::GetInstance().Execute(m_codeTable);
     }
 }

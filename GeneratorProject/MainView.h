@@ -2,6 +2,9 @@
 #include "IWindowView.h"
 #include "Application.h"
 
+using CodeList = vector<Code>;
+using FunctionMap = std::map<std::string, uint64>;
+
 class MainView :
     public IWindowView
 {
@@ -26,9 +29,11 @@ private:
 	std::string m_strPrintTokenKindText;
 	std::string m_strPrintTokenStringText;
 	std::string m_strParserText;
+	std::string m_strGenerateText;
 
 	std::string m_strBackUp;
 
 	std::shared_ptr<Program> m_pProgram = nullptr;
+	std::tuple<CodeList, FunctionMap> m_codeTable;
 };
 

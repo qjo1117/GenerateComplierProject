@@ -31,24 +31,24 @@ void PrintSyntaxTree(Program* program)
 void Interpreter::Interpret(std::shared_ptr<Program> _pProgram)
 {
     // Clear
-    GET_INTERPRETER().m_mapFunctionTable.clear();
-    GET_INTERPRETER().m_mapGlobal.clear();
-    GET_INTERPRETER().m_listLocalFrame.clear();
+    InterpreterMgr.m_mapFunctionTable.clear();
+    InterpreterMgr.m_mapGlobal.clear();
+    InterpreterMgr.m_listLocalFrame.clear();
     for (auto& node : _pProgram->m_vecFunction) {
-        GET_INTERPRETER().m_mapFunctionTable[node->m_strName] = node;
+        InterpreterMgr.m_mapFunctionTable[node->m_strName] = node;
     }
-    if (GET_INTERPRETER().m_mapFunctionTable["main"] == nullptr) {
+    if (InterpreterMgr.m_mapFunctionTable["main"] == nullptr) {
         std::cout << "Cannot find main function\n";
         return;
     }
-    GET_INTERPRETER().m_listLocalFrame.emplace_back().emplace_front();
+    InterpreterMgr.m_listLocalFrame.emplace_back().emplace_front();
     try {
-        GET_INTERPRETER().m_mapFunctionTable["main"]->Interpret();
+        InterpreterMgr.m_mapFunctionTable["main"]->Interpret();
     }
     catch (ReturnException) {}
     catch (BreakException) {}
     catch (ContinueException) {}
-    GET_INTERPRETER().m_listLocalFrame.pop_back();
+    InterpreterMgr.m_listLocalFrame.pop_back();
 }
 
 Interpreter::Interpreter()
@@ -96,6 +96,80 @@ Interpreter::Interpreter()
     };
 }
 
+std::tuple<std::vector<Code>, std::map<std::string, std::size_t>>
+        Generater::Generate(std::shared_ptr<Program> _pProgram)
+{
+    m_vecCodeList.clear();
+    m_mapFunctionTable.clear();
+    WriteCode(Instruction::GetGlobal, string("main"));
+    WriteCode(Instruction::Call, static_cast<size_t>(0));
+    WriteCode(Instruction::Exit);
+    for (auto& pNode : _pProgram->m_vecFunction) {
+        pNode->Generate();
+    }
+    return { m_vecCodeList, m_mapFunctionTable };
+}
+
+void Generater::SetLocal(std::string _strLocal)
+{
+    m_listSymbolStackTable.front()[_strLocal] = m_vecOffsetStack.back();
+    m_vecOffsetStack.back() += 1;
+    m_iLocalSize = max(m_iLocalSize, m_vecOffsetStack.back());
+}
+
+uint64 Generater::GetLocal(std::string _strLocal)
+{
+    for (auto& symbolTable : m_listSymbolStackTable) {
+        if (symbolTable.count(_strLocal)) {
+            return symbolTable[_strLocal];
+        }
+    }
+    return SIZE_MAX;
+}
+
+void Generater::InitBlock()
+{
+    m_iLocalSize = 0;
+    m_vecOffsetStack.push_back(0);
+    m_listSymbolStackTable.emplace_front();
+}
+
+void Generater::PushBlock()
+{
+    m_listSymbolStackTable.emplace_front();
+    m_vecOffsetStack.push_back(m_vecOffsetStack.back());
+}
+
+void Generater::PopBlock()
+{
+    m_vecOffsetStack.pop_back();
+    m_listSymbolStackTable.pop_front();
+}
+
+uint64 Generater::WriteCode(Instruction _instruction)
+{
+    m_vecCodeList.push_back({ _instruction });
+    return m_vecCodeList.size() - 1;
+}
+
+uint64 Generater::WriteCode(Instruction _instruction, std::any _anyValue)
+{
+    m_vecCodeList.push_back({ _instruction, _anyValue });
+    return m_vecCodeList.size() - 1;
+}
+
+void Generater::PatchAddress(uint64 _codeIndex)
+{
+    m_vecCodeList[_codeIndex].m_anyOperand = m_vecCodeList.size();
+}
+
+void Generater::PatchOperand(uint64 _codeIndex, uint64 _operand)
+{
+    m_vecCodeList[_codeIndex].m_anyOperand = _operand;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Function
 std::string Function::PrintInfo(int32 _depth)
 {
     std::string strResult 
@@ -122,6 +196,24 @@ void Function::Interpret()
     }
 }
 
+void Function::Generate()
+{
+    GeneraterMgr.m_mapFunctionTable[m_strName] = GeneraterMgr.m_vecCodeList.size();
+    auto temp = GeneraterMgr.WriteCode(Instruction::Alloca);
+    GeneraterMgr.InitBlock();
+    for (std::string& paramName : m_vecParameter) {
+        GeneraterMgr.SetLocal(paramName);
+    }
+    for (auto& pScope : m_vecBlock) {
+        pScope->Generate();
+    }
+    GeneraterMgr.PopBlock();
+    GeneraterMgr.PatchOperand(temp, GeneraterMgr.m_iLocalSize);
+    GeneraterMgr.WriteCode(Instruction::Return);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - For
 std::string For::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -145,7 +237,7 @@ std::string For::PrintInfo(int32 _depth)
 
 void For::Interpret()
 {
-    GET_INTERPRETER().m_listLocalFrame.back().emplace_front();
+    InterpreterMgr.m_listLocalFrame.back().emplace_front();
     m_pVariable->Interpret();
     while (true) {
         auto result = m_pCondition->Interpret();
@@ -165,9 +257,44 @@ void For::Interpret()
         }
         m_pExpression->Interpret();
     }
-    GET_INTERPRETER().m_listLocalFrame.back().pop_front();
+    InterpreterMgr.m_listLocalFrame.back().pop_front();
 }
 
+void For::Generate()
+{
+    GeneraterMgr.m_vecBreakStack.emplace_back();
+    GeneraterMgr.m_vecContinueStack.emplace_back();
+
+    GeneraterMgr.PushBlock();
+    m_pVariable->Generate();
+    uint64 jumpAddress = GeneraterMgr.m_vecCodeList.size();
+    m_pCondition->Generate();
+    uint64 conditionJump = GeneraterMgr.WriteCode(Instruction::ConditionJump);
+
+    for (auto& pNode : m_vecBlock) {
+        pNode->Generate();
+    }
+
+    uint64 continueAddress = GeneraterMgr.m_vecCodeList.size();
+    m_pExpression->Generate();
+    GeneraterMgr.WriteCode(Instruction::PopOperand);
+    GeneraterMgr.WriteCode(Instruction::Jump, jumpAddress);
+    GeneraterMgr.PatchAddress(conditionJump);
+    GeneraterMgr.PopBlock();
+
+    for (uint64 jump : GeneraterMgr.m_vecContinueStack.back()) {
+        GeneraterMgr.PatchOperand(jump, continueAddress);
+    }
+    GeneraterMgr.m_vecContinueStack.pop_back();
+
+    for (uint64 jump : GeneraterMgr.m_vecBreakStack.back()) {
+        GeneraterMgr.PatchAddress(jump);
+    }
+    GeneraterMgr.m_vecBreakStack.pop_back();
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - If
 std::string If::PrintInfo(int32 _depth)
 {
     std::string strResult;
@@ -199,23 +326,52 @@ void If::Interpret()
         if (Object::IsTrue(pResult) == false) {
             continue;
         }
-        GET_INTERPRETER().m_listLocalFrame.back().emplace_front();
+        InterpreterMgr.m_listLocalFrame.back().emplace_front();
         for (auto& pNode : m_vecBlocks[i]) {
             pNode->Interpret();
         }
-        GET_INTERPRETER().m_listLocalFrame.back().pop_front();
+        InterpreterMgr.m_listLocalFrame.back().pop_front();
         return;
     }
     if (m_vecElseBlock.empty()) {
         return;
     }
-    GET_INTERPRETER().m_listLocalFrame.back().emplace_front();
+    InterpreterMgr.m_listLocalFrame.back().emplace_front();
     for (auto& pNode : m_vecElseBlock) {
         pNode->Interpret();
     }
-    GET_INTERPRETER().m_listLocalFrame.back().pop_front();
+    InterpreterMgr.m_listLocalFrame.back().pop_front();
 }
 
+void If::Generate()
+{
+    std::vector<uint64> vecJumpList;
+    for (uint32 i = 0; i < m_vecCondition.size(); ++i) {
+        m_vecCondition[i]->Generate();
+        auto conditionJump = GeneraterMgr.WriteCode(Instruction::ConditionJump);
+        GeneraterMgr.PushBlock();
+        for (auto& pNode : m_vecBlocks[i]) {
+            pNode->Generate();
+        }
+        GeneraterMgr.PopBlock();
+        vecJumpList.push_back(GeneraterMgr.WriteCode(Instruction::Jump));
+        GeneraterMgr.PatchAddress(conditionJump);
+    }
+
+    if (m_vecElseBlock.empty() == false) {
+        GeneraterMgr.PushBlock();
+        for (auto& pNode : m_vecElseBlock) {
+            pNode->Generate();
+        }
+        GeneraterMgr.PopBlock();
+    }
+    for (uint64& jump : vecJumpList) {
+        GeneraterMgr.PatchAddress(jump);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Variable
 std::string Variable::PrintInfo(int32 _depth)
 {
     std::string strResult = 
@@ -229,9 +385,19 @@ std::string Variable::PrintInfo(int32 _depth)
 
 void Variable::Interpret()
 {
-    GET_INTERPRETER().m_listLocalFrame.back().front()[m_strName] = m_pExpression->Interpret();
+    InterpreterMgr.m_listLocalFrame.back().front()[m_strName] = m_pExpression->Interpret();
 }
 
+void Variable::Generate()
+{
+    GeneraterMgr.SetLocal(m_strName);
+    m_pExpression->Generate();
+    GeneraterMgr.WriteCode(Instruction::SetLocal, GeneraterMgr.GetLocal(m_strName));
+    GeneraterMgr.WriteCode(Instruction::PopOperand);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Print
 std::string Print::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -265,6 +431,19 @@ void Print::Interpret()
 #endif
 }
 
+void Print::Generate()
+{
+    for (uint64 i = m_vecArgument.size(); i > 0; --i) {
+        m_vecArgument[i - 1]->Generate();
+    }
+    GeneraterMgr.WriteCode(Instruction::Print, m_vecArgument.size());
+    if (m_bLineFeed) {
+        GeneraterMgr.WriteCode(Instruction::PrintLine);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Return
 std::string Return::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -278,6 +457,14 @@ void Return::Interpret()
     throw ReturnException{ m_pExpression->Interpret() };
 }
 
+void Return::Generate()
+{
+    m_pExpression->Generate();
+    GeneraterMgr.WriteCode(Instruction::Return);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Break
 std::string Break::PrintInfo(int32 _depth)
 {
     return Indent(_depth) + "BREAK\n";
@@ -288,6 +475,17 @@ void Break::Interpret()
     throw BreakException();
 }
 
+void Break::Generate()
+{
+    if (GeneraterMgr.m_vecBreakStack.empty()) {
+        return;
+    }
+    uint64 jump = GeneraterMgr.WriteCode(Instruction::Jump);
+    GeneraterMgr.m_vecBreakStack.back().push_back(jump);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Continue
 std::string Continue::PrintInfo(int32 _depth)
 {
     return Indent(_depth) + "CONTINUE\n";
@@ -298,6 +496,17 @@ void Continue::Interpret()
     throw ContinueException();
 }
 
+void Continue::Generate()
+{
+    if (GeneraterMgr.m_vecContinueStack.empty()) {
+        return;
+    }
+    uint64 jump = GeneraterMgr.WriteCode(Instruction::Jump);
+    GeneraterMgr.m_vecContinueStack.back().push_back(jump);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - ExpressionStatement
 std::string ExpressionStatement::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -311,6 +520,14 @@ void ExpressionStatement::Interpret()
     m_pExpression->Interpret();
 }
 
+void ExpressionStatement::Generate()
+{
+    m_pExpression->Generate();
+    GeneraterMgr.WriteCode(Instruction::PopOperand);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Or
 std::string Or::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -329,6 +546,16 @@ std::any Or::Interpret()
     return Object::IsTrue(m_pLhs->Interpret()) ? true : m_pRhs->Interpret();;
 }
 
+void Or::Generate()
+{
+    m_pLhs->Generate();
+    uint64 logicalOr = GeneraterMgr.WriteCode(Instruction::LogicalOr);
+    m_pRhs->Generate();
+    GeneraterMgr.PatchAddress(logicalOr);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - And
 std::string And::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -347,6 +574,16 @@ std::any And::Interpret()
     return Object::IsFalse(m_pLhs->Interpret()) ? false : m_pRhs->Interpret();
 }
 
+void And::Generate()
+{
+    m_pLhs->Generate();
+    uint64 logicalAnd = GeneraterMgr.WriteCode(Instruction::LogicalAnd);
+    m_pRhs->Generate();
+    GeneraterMgr.PatchAddress(logicalAnd);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Relational
 std::string Relational::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -428,6 +665,16 @@ std::any Relational::Interpret()
         if (IsFunc(Object::IsString)) {
             return Object::ToString(lValue) != Object::ToString(rValue);
         }
+
+        switch (int32 ret = IsCrossFunc(Object::IsNumber, Object::IsFloat)) {
+        case 1: return Object::ToNumber(lValue) != Object::ToFloat(rValue);
+        case 2: return Object::ToFloat(lValue) != Object::ToNumber(rValue);
+        }
+
+        switch (int32 ret = IsCrossFunc(Object::IsNumber, Object::IsString)) {
+        case 1: return std::to_string(Object::ToNumber(lValue)) != Object::ToString(rValue);
+        case 2: return Object::ToString(lValue) != std::to_string(Object::ToNumber(rValue));
+        }
     }
 
     if (m_eKind == EKind::LessThan && IsFunc(Object::IsNumber)) {
@@ -445,6 +692,24 @@ std::any Relational::Interpret()
     return false;
 }
 
+void Relational::Generate()
+{
+    static std::map<EKind, Instruction> mapKindToInstructionTable = {
+        { EKind::Equal,             Instruction::Equal },   
+        { EKind::NotEqual,          Instruction::NotEqual },
+        { EKind::LessThan,          Instruction::LessThan },
+        { EKind::GreaterThan,       Instruction::GreaterThan },
+        { EKind::LessOrEqual,       Instruction::LessOrEqual },
+        { EKind::GreaterOrEqual,    Instruction::GreaterOrEqual },
+    };
+
+    m_pLhs->Generate();
+    m_pRhs->Generate();
+    GeneraterMgr.WriteCode(mapKindToInstructionTable[m_eKind]);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Arithmetic
 std::string Arithmetic::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -487,9 +752,9 @@ std::any Arithmetic::Interpret()
             // python 처럼 문자열을 복사한다.
             std::string result;
             std::string temp = Object::ToString(lValue);
-            int32 size = Object::ToNumber(rValue);
+            uint64 size = Object::ToNumber(rValue);
             result.reserve(temp.length() * size);
-            for (int32 i = 0; i < size; ++i) {
+            for (uint64 i = 0; i < size; ++i) {
                 result += temp;
             }
             return result;
@@ -505,6 +770,22 @@ std::any Arithmetic::Interpret()
     return 0.0;
 }
 
+void Arithmetic::Generate()
+{
+    static std::map<EKind, Instruction> mapKindToInstructionTable = {
+        { EKind::Add,           Instruction::Add },   
+        { EKind::Subtract,      Instruction::Subtract },
+        { EKind::Multiply,      Instruction::Multiply },
+        { EKind::Divide,        Instruction::Divide },
+        { EKind::Modulo,        Instruction::Modulo },
+    };
+    m_pLhs->Generate();
+    m_pRhs->Generate();
+    GeneraterMgr.WriteCode(mapKindToInstructionTable[m_eKind]);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Unary
 std::string Unary::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -517,7 +798,7 @@ std::any Unary::Interpret()
 {
     auto value = m_pSub->Interpret();
     if (m_eKind == EKind::Add && Object::IsNumber(value)) {
-        return abs(Object::ToNumber(value));
+        return std::abs((long)Object::ToNumber(value));
     }
     if (m_eKind == EKind::Subtract && Object::IsNumber(value)) {
         return Object::ToNumber(value) * -1;
@@ -525,6 +806,18 @@ std::any Unary::Interpret()
     return 0.0;
 }
 
+void Unary::Generate()
+{
+    std::map<EKind, Instruction> mapKindToInstructionTable = {
+        { EKind::Add,       Instruction::Absolute },  
+        { EKind::Subtract,  Instruction::ReverseSign },
+    };
+    m_pSub->Generate();
+    GeneraterMgr.WriteCode(mapKindToInstructionTable[m_eKind]);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - GetElement
 std::string GetElement::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -551,6 +844,15 @@ std::any GetElement::Interpret()
     return nullptr;
 }
 
+void GetElement::Generate()
+{
+    m_pSub->Generate();
+    m_pIndex->Generate();
+    GeneraterMgr.WriteCode(Instruction::GetElement);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - SetElement
 std::string SetElement::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -581,6 +883,16 @@ std::any SetElement::Interpret()
     return nullptr;
 }
 
+void SetElement::Generate()
+{
+    m_pValue->Generate();
+    m_pSub->Generate();
+    m_pIndex->Generate();
+    GeneraterMgr.WriteCode(Instruction::SetElement);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Call
 std::string Call::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -617,18 +929,29 @@ std::any Call::Interpret()
         auto name = Object::ToFunction(value)->m_vecParameter[i];
         mapParameter[name] = m_vecArgument[i]->Interpret();
     }
-    GET_INTERPRETER().m_listLocalFrame.emplace_back().push_front(mapParameter);
+    InterpreterMgr.m_listLocalFrame.emplace_back().push_front(mapParameter);
     try {
         Object::ToFunction(value)->Interpret();
     }
     catch (ReturnException exception) {
-        GET_INTERPRETER().m_listLocalFrame.pop_back();
+        InterpreterMgr.m_listLocalFrame.pop_back();
         return exception.result;
     }
-    GET_INTERPRETER().m_listLocalFrame.pop_back();
+    InterpreterMgr.m_listLocalFrame.pop_back();
     return nullptr;
 }
 
+void Call::Generate()
+{
+    for (uint64 i = m_vecArgument.size(); i > 0; --i) {
+        m_vecArgument[i - 1]->Generate();
+    }
+    m_pSub->Generate();
+    GeneraterMgr.WriteCode(Instruction::Call, m_vecArgument.size());
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - NullLiteral
 std::string NullLiteral::PrintInfo(int32 _depth)
 {
     return Indent(_depth) + "null\n";
@@ -639,6 +962,13 @@ std::any NullLiteral::Interpret()
     return nullptr;
 }
 
+void NullLiteral::Generate()
+{
+    GeneraterMgr.WriteCode(Instruction::PushNull);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - BooleanLiteral
 std::string BooleanLiteral::PrintInfo(int32 _depth)
 {
     return Indent(_depth) + (m_bValue ? "true\n" : "false\n");
@@ -649,6 +979,13 @@ std::any BooleanLiteral::Interpret()
     return m_bValue;
 }
 
+void BooleanLiteral::Generate()
+{
+    GeneraterMgr.WriteCode(Instruction::PushBoolean);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - NumberLiteral
 std::string NumberLiteral::PrintInfo(int32 _depth)
 {
     return Indent(_depth) + std::to_string(m_uValue);
@@ -659,6 +996,13 @@ std::any NumberLiteral::Interpret()
     return m_uValue;
 }
 
+void NumberLiteral::Generate()
+{
+    GeneraterMgr.WriteCode(Instruction::PushNumber, m_uValue);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - FloatLiteral
 std::string FloatLiteral::PrintInfo(int32 _depth)
 {
     return Indent(_depth) + std::to_string(m_dValue);
@@ -669,6 +1013,13 @@ std::any FloatLiteral::Interpret()
     return m_dValue;
 }
 
+void FloatLiteral::Generate()
+{
+    GeneraterMgr.WriteCode(Instruction::PushNumber, m_dValue);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - StringLiteral
 std::string StringLiteral::PrintInfo(int32 _depth)
 {
     return Indent(_depth) + "\"" + m_strValue + "\"\n";
@@ -679,6 +1030,13 @@ std::any StringLiteral::Interpret()
     return m_strValue;
 }
 
+void StringLiteral::Generate()
+{
+    GeneraterMgr.WriteCode(Instruction::PushString, m_strValue);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - ArrayLiteral
 std::string ArrayLiteral::PrintInfo(int32 _depth)
 {
     std::string strResult;
@@ -699,6 +1057,16 @@ std::any ArrayLiteral::Interpret()
     return result;
 }
 
+void ArrayLiteral::Generate()
+{
+    for (uint64 i = m_vecValue.size(); i > 0; --i) {
+        m_vecValue[i - 1]->Generate();
+    }
+    GeneraterMgr.WriteCode(Instruction::PushArray, m_vecValue.size());
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - MapLiteral
 std::string MapLiteral::PrintInfo(int32 _depth)
 {
     std::string strResult;
@@ -719,6 +1087,17 @@ std::any MapLiteral::Interpret()
     return result;
 }
 
+void MapLiteral::Generate()
+{
+    for (auto& [key, pValue] : m_mapValue) {
+        GeneraterMgr.WriteCode(Instruction::PushString, key);
+        pValue->Generate();
+    }
+    GeneraterMgr.WriteCode(Instruction::PushMap, m_mapValue.size());
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - GetVariable
 std::string GetVariable::PrintInfo(int32 _depth)
 {
     return Indent(_depth) + "GET_VARIABLE: " + m_strName + "\n";
@@ -726,23 +1105,35 @@ std::string GetVariable::PrintInfo(int32 _depth)
 
 std::any GetVariable::Interpret()
 {
-    for (auto& vecVariable : GET_INTERPRETER().m_listLocalFrame.back()) {
+    for (auto& vecVariable : InterpreterMgr.m_listLocalFrame.back()) {
         if (vecVariable.count(m_strName)) {
             return vecVariable[m_strName];
         }
     }
-    if (GET_INTERPRETER().m_mapGlobal.count(m_strName)) {
-        return GET_INTERPRETER().m_mapGlobal[m_strName];
+    if (InterpreterMgr.m_mapGlobal.count(m_strName)) {
+        return InterpreterMgr.m_mapGlobal[m_strName];
     }
-    if (GET_INTERPRETER().m_mapFunctionTable.count(m_strName)) {
-        return GET_INTERPRETER().m_mapFunctionTable[m_strName];
+    if (InterpreterMgr.m_mapFunctionTable.count(m_strName)) {
+        return InterpreterMgr.m_mapFunctionTable[m_strName];
     }
-    if (GET_INTERPRETER().m_mapBuiltinFunctionTable.count(m_strName)) {
-        return GET_INTERPRETER().m_mapBuiltinFunctionTable[m_strName];
+    if (InterpreterMgr.m_mapBuiltinFunctionTable.count(m_strName)) {
+        return InterpreterMgr.m_mapBuiltinFunctionTable[m_strName];
     }
     return nullptr;
 }
 
+void GetVariable::Generate()
+{
+    if (GeneraterMgr.GetLocal(m_strName) == SIZE_MAX) {
+        GeneraterMgr.WriteCode(Instruction::GetGlobal, m_strName);
+    }
+    else {
+        GeneraterMgr.WriteCode(Instruction::GetLocal, GeneraterMgr.GetLocal(m_strName));
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - SetVariable
 std::string SetVariable::PrintInfo(int32 _depth)
 {
     std::string strResult;
@@ -753,14 +1144,27 @@ std::string SetVariable::PrintInfo(int32 _depth)
 
 std::any SetVariable::Interpret()
 {
-    for (auto& variables : GET_INTERPRETER().m_listLocalFrame.back()) {
+    for (auto& variables : InterpreterMgr.m_listLocalFrame.back()) {
         if (variables.count(m_strName)) {
             return variables[m_strName] = m_pValue->Interpret();
         }
     }
-    return GET_INTERPRETER().m_mapGlobal[m_strName] = m_pValue->Interpret();
+    return InterpreterMgr.m_mapGlobal[m_strName] = m_pValue->Interpret();
 }
 
+void SetVariable::Generate()
+{
+    m_pValue->Generate();
+    if (GeneraterMgr.GetLocal(m_strName) == SIZE_MAX) {
+        GeneraterMgr.WriteCode(Instruction::SetGlobal, m_strName);
+    }
+    else {
+        GeneraterMgr.WriteCode(Instruction::SetLocal, GeneraterMgr.GetLocal(m_strName));
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - Class
 std::string Class::PrintInfo(int32 _depth)
 {
     std::string strResult =
@@ -787,10 +1191,17 @@ void Class::Interpret()
             continue;
         }
         auto tupleTemp = std::make_tuple(pVariable.m_eAccess, pVariable.m_pVariable->m_pExpression->Interpret());
-        CLASS_TABLE[m_strName].push_back(std::move(tupleTemp));
+        InterpreterMgr.m_mapClassDefaultTable[m_strName].push_back(std::move(tupleTemp));
     }
 }
 
+void Class::Generate()
+{
+
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - SetClassAccess
 std::string SetClassAccess::PrintInfo(int32 _depth)
 {
     return std::string();
@@ -801,6 +1212,12 @@ std::any SetClassAccess::Interpret()
     return 1;
 }
 
+void SetClassAccess::Generate()
+{
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// - GetClassAccess
 std::string GetClassAccess::PrintInfo(int32 _depth)
 {
     std::string strResult = 
@@ -814,3 +1231,6 @@ std::any GetClassAccess::Interpret()
     return m_pSub->Interpret();
 }
 
+void GetClassAccess::Generate()
+{
+}

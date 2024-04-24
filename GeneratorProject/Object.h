@@ -14,10 +14,11 @@ using std::string;
 using std::ostream;
 using std::function;
 
-class Array;
-class Map;
+struct Array;
+struct Map;
 
-struct Object {
+struct Object 
+{
 	bool m_bMarked = false;
 	virtual ~Object() {}
 
