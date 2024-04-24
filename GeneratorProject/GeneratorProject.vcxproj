@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -136,6 +136,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Code.cpp" />
     <ClCompile Include="Debugger.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MainView.cpp" />
@@ -149,6 +150,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
+    <ClInclude Include="Code.h" />
     <ClInclude Include="Debugger.h" />
     <ClInclude Include="IWindowView.h" />
     <ClInclude Include="MainView.h" />
@@ -162,6 +164,7 @@
     <ClInclude Include="TypeDefine.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="CodeDefine.ini" />
     <None Include="TokenDefine.ini" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

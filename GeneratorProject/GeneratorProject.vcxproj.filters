@@ -48,6 +48,9 @@
     <ClCompile Include="Task.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="Code.cpp">
+      <Filter>Language</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Node.h">
@@ -86,9 +89,15 @@
     <ClInclude Include="Task.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="Code.h">
+      <Filter>Language</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="TokenDefine.ini">
+      <Filter>Language</Filter>
+    </None>
+    <None Include="CodeDefine.ini">
       <Filter>Language</Filter>
     </None>
   </ItemGroup>

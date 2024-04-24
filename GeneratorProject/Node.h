@@ -9,6 +9,7 @@
 #include <functional>
 #include "TypeDefine.h"
 #include "Token.h"
+#include "Code.h"
 
 class Class;
 class Function;
@@ -37,22 +38,55 @@ public:
 		static Interpreter instance;
 		return instance;
 	}
-#define GET_INTERPRETER()	Interpreter::GetInstance()
-#define GLOBAL_TABLE		GET_INTERPRETER().m_mapGlobal
-#define LOCAL_TABLE			GET_INTERPRETER().m_listLocalFrame
-#define FUNCTION_TABLE		GET_INTERPRETER().m_mapFunctionTable
-#define BUILTIN_TABLE		GET_INTERPRETER().m_mapBuiltinFunctionTable
-#define CLASS_TABLE			GET_INTERPRETER().m_mapClassDefaultTable
+#define InterpreterMgr	Interpreter::GetInstance()
 
 public:
+	// 인터프리터 버전
 	void Interpret(std::shared_ptr<Program> _pProgram);
+public:
+	std::map<std::string, std::any> m_mapGlobal;
+	std::list<std::list<std::map<std::string, std::any>>> m_listLocalFrame;
+	std::map<std::string, std::shared_ptr<Function>> m_mapFunctionTable;
+	std::map<std::string, ScriptFunctionType> m_mapBuiltinFunctionTable;
+	std::map<std::string, std::vector<std::tuple<EMemberAccess, std::any>>> m_mapClassDefaultTable;
+};
+
+class Generater
+{
+
+private:
+	Generater() { }
+	~Generater() { }
+public:
+	static Generater& GetInstance()
+	{
+		static Generater instance;
+		return instance;
+	}
+#define GeneraterMgr		Generater::GetInstance()
+
+	// 코드 생성
+	auto Generate(std::shared_ptr<Program> _pProgram) -> std::tuple<std::vector<Code>, std::map<std::string, std::size_t>>;
 
 public:
-	inline static std::map<std::string, std::any> m_mapGlobal;
-	inline static std::list<std::list<std::map<std::string, std::any>>> m_listLocalFrame;
-	inline static std::map<std::string, std::shared_ptr<Function>> m_mapFunctionTable;
-	inline static std::map<std::string, ScriptFunctionType> m_mapBuiltinFunctionTable;
-	inline static std::map<std::string, std::vector<std::tuple<EMemberAccess, std::any>>> m_mapClassDefaultTable;
+	void SetLocal(std::string _strLocal);
+	uint64 GetLocal(std::string _strLocal);
+	void InitBlock();
+	void PushBlock();
+	void PopBlock();
+	uint64 WriteCode(Instruction _instruction);
+	uint64 WriteCode(Instruction _instruction, std::any _anyValue);
+	void PatchAddress(uint64 _codeIndex);
+	void PatchOperand(uint64 _codeIndex, uint64 _operand);
+
+public:
+	std::vector<Code> m_vecCodeList;
+	std::map<std::string, uint64> m_mapFunctionTable;
+	std::list<std::map<std::string, uint64>> m_listSymbolStackTable;
+	std::vector<uint64> m_vecOffsetStack;
+	uint64 m_iLocalSize = 0;
+	std::vector<std::vector<uint64>> m_vecContinueStack;
+	std::vector<std::vector<uint64>> m_vecBreakStack;
 };
 
 class Program 
@@ -67,6 +101,7 @@ class Statement
 public:
 	virtual std::string PrintInfo(int32 _depth) = 0;
 	virtual void Interpret() = 0;
+	virtual void Generate() = 0;
 };
 
 class Expression 
@@ -74,6 +109,7 @@ class Expression
 public:
 	virtual std::string PrintInfo(int32 _depth) = 0;
 	virtual std::any Interpret() = 0;
+	virtual void Generate() = 0;
 };
 
 class Function : public Statement 
@@ -81,6 +117,7 @@ class Function : public Statement
 public:
 	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
+	void Generate() override;
 
 public:
 	std::string m_strName;
@@ -93,6 +130,7 @@ class Variable : public Statement
 public:
 	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
+	void Generate() override;
 
 public:
 	std::string m_strName;
@@ -105,6 +143,7 @@ class Return : public Statement
 public:
 	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
+	void Generate() override;
 
 public:
 	std::shared_ptr<Expression> m_pExpression;
@@ -115,6 +154,7 @@ class For : public Statement
 public:
 	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
+	void Generate() override;
 
 public:
 	std::shared_ptr<Variable> m_pVariable;
@@ -128,6 +168,7 @@ class Break : public Statement
 public:
 	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
+	void Generate() override;
 };
 
 class Continue : public Statement 
@@ -135,6 +176,7 @@ class Continue : public Statement
 public:
 	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
+	void Generate() override;
 };
 
 class If : public Statement 
@@ -142,6 +184,7 @@ class If : public Statement
 public:
 	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
+	void Generate() override;
 
 public:
 	std::vector<std::shared_ptr<Expression>> m_vecCondition;
@@ -154,6 +197,7 @@ class Print : public Statement
 public:
 	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
+	void Generate() override;
 
 public:	
 	bool m_bLineFeed = false;
@@ -165,6 +209,7 @@ class ExpressionStatement : public Statement
 public:
 	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
+	void Generate() override;
 
 public:
 	std::shared_ptr<Expression> m_pExpression;
@@ -175,6 +220,7 @@ class Or : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::shared_ptr<Expression> m_pLhs;
@@ -186,6 +232,7 @@ class And : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::shared_ptr<Expression> m_pLhs;
@@ -197,6 +244,7 @@ class Relational : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	EKind m_eKind = EKind::Unknown;
@@ -209,6 +257,7 @@ class Arithmetic : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	EKind m_eKind = EKind::Unknown;
@@ -221,6 +270,7 @@ class Unary : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	EKind m_eKind = EKind::Unknown;
@@ -232,6 +282,7 @@ class Call : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::shared_ptr<Expression> m_pSub;
@@ -243,6 +294,7 @@ class GetElement : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::shared_ptr<Expression> m_pSub;
@@ -254,6 +306,7 @@ class SetElement : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::shared_ptr<Expression> m_pSub;
@@ -266,6 +319,7 @@ class GetVariable : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::string m_strName;
@@ -276,6 +330,7 @@ class SetVariable : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::string m_strName;
@@ -287,6 +342,7 @@ class NullLiteral : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 };
 
 class BooleanLiteral : public Expression
@@ -294,6 +350,7 @@ class BooleanLiteral : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	bool m_bValue = false;
@@ -304,6 +361,7 @@ class NumberLiteral : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	uint64 m_uValue = 0;
@@ -314,6 +372,7 @@ class FloatLiteral : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	float64 m_dValue = 0.0;
@@ -324,6 +383,7 @@ class StringLiteral : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::string m_strValue;
@@ -334,6 +394,7 @@ class ArrayLiteral : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::vector<std::shared_ptr<Expression>> m_vecValue;
@@ -344,6 +405,7 @@ class MapLiteral : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::map<std::string, std::shared_ptr<Expression>> m_mapValue;
@@ -361,6 +423,7 @@ class Class : public Statement
 public:
 	std::string PrintInfo(int32 _depth) override;
 	void Interpret() override;
+	void Generate() override;
 
 public:
 	std::string m_strName;
@@ -372,6 +435,7 @@ class SetClassAccess : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 
 public:
 	std::shared_ptr<Expression> m_pSub;
@@ -385,6 +449,7 @@ class GetClassAccess : public Expression
 public:
 	std::string PrintInfo(int32 _depth) override;
 	std::any Interpret() override;
+	void Generate() override;
 	
 public:
 	std::shared_ptr<Expression> m_pSub;
