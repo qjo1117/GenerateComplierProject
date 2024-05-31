@@ -1159,7 +1159,11 @@ void SetVariable::Generate()
         GeneraterMgr.WriteCode(Instruction::SetGlobal, m_strName);
     }
     else {
+<<<<<<< HEAD
         GeneraterMgr.WriteCode(Instruction::SetLocal, GeneraterMgr.GetLocal(m_strName));
+=======
+        GeneraterMgr.WriteCode(Instruction::SetLocal, m_strName);
+>>>>>>> 66dd2488c6dd53f5aae4938226249a18f7b8893b
     }
 }
 

@@ -51,9 +51,12 @@
     <ClCompile Include="Code.cpp">
       <Filter>Language</Filter>
     </ClCompile>
+<<<<<<< HEAD
     <ClCompile Include="Machine.cpp">
       <Filter>Language</Filter>
     </ClCompile>
+=======
+>>>>>>> 66dd2488c6dd53f5aae4938226249a18f7b8893b
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Node.h">
@@ -95,9 +98,12 @@
     <ClInclude Include="Code.h">
       <Filter>Language</Filter>
     </ClInclude>
+<<<<<<< HEAD
     <ClInclude Include="Machine.h">
       <Filter>Language</Filter>
     </ClInclude>
+=======
+>>>>>>> 66dd2488c6dd53f5aae4938226249a18f7b8893b
   </ItemGroup>
   <ItemGroup>
     <None Include="TokenDefine.ini">
